@@ -13,17 +13,17 @@ namespace threadmarks_thing
 {
     public class Story
     {
-        private readonly string url;
+        private readonly Uri url;
         private readonly Site site;
         private readonly HttpClient client;
 
-        public Story(string url, Site site, HttpClient client)
+        public Story(Uri url, Site site, HttpClient client)
         {
             this.url = url;
             this.site = site;
             this.client = client;
 
-            BaseUrl = url.Replace(site.BaseUrl, "");
+            BaseUrl = url.ToString().Replace(site.BaseUrl.ToString(), "");
         }
 
         public string BaseUrl { get; }
@@ -31,7 +31,7 @@ namespace threadmarks_thing
         public async Task GetPosts()
         {
             var page = await GetStoryPage();
-            var categories = await GetCategoryPages(page);
+            var categories = await GetCategories(page);
 
             foreach (var (id, cat) in categories)
             {
@@ -41,15 +41,14 @@ namespace threadmarks_thing
 
         public async Task<string> GetStoryPage()
         {
-            var response = await client.GetAsync(url);
-            return await response.Content.ReadAsStringAsync();
+            return await site.GetAsync(url);
         }
 
-        private async Task<IDictionary<string, Category>> GetCategoryPages(string storyPage)
+        private async Task<IDictionary<string, Category>> GetCategories(string storyPage)
         {
             var p = new HtmlParser();
             var doc = await p.ParseDocumentAsync(storyPage);
-            doc.Location.Href = url;
+            doc.Location.Href = url.ToString();
 
             var categories = doc.Links.OfType<IHtmlAnchorElement>()
                 .Where(l => l.Id?.Contains("threadmark-category") ?? false)
@@ -58,7 +57,5 @@ namespace threadmarks_thing
 
             return categories;
         }
-
-
     }
 }

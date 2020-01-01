@@ -6,12 +6,12 @@ namespace threadmarks_thing
     public class SiteFactory
     {        
         private static readonly Site[] sites = new[] {
-            new Site ("Sufficient Velocity", "https://forums.sufficientvelocity.com")
+            new Site ("Sufficient Velocity", new Uri("https://forums.sufficientvelocity.com"))
         };
 
-        public static Site GetSiteFor(string url)
+        public static Site GetSiteFor(Uri url)
         {
-            return sites.First(s => url.StartsWith(s.BaseUrl));
+            return sites.First(s => url.Host == s.BaseUrl.Host);
         }
     }
 }

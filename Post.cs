@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
+using AngleSharp.Html.Dom;
 using AngleSharp.Html.Parser;
 using Newtonsoft.Json.Linq;
 
@@ -10,16 +11,13 @@ namespace threadmarks_thing
 {
     public class Post
     {
-        private readonly HttpClient client;
-
-        public Post(string href, string name, Category category, Story story, Site site, HttpClient client)
+        public Post(string href, string name, Category category, Story story, Site site)
         {
             Href = href;
             Name = name;
             Category = category;
             Story = story;
             Site = site;
-            this.client = client;
         }
 
         public string Href { get; }
@@ -27,6 +25,10 @@ namespace threadmarks_thing
         public Category Category { get; }
         public Story Story { get; }
         public Site Site { get; }
+
+        public DateTime Timestamp { get; private set; }
+        public string Author { get; private set; }
+        public string Title { get; private set; }
         public string Content { get; private set; }
 
         public async Task FetchContent(string csrfToken)
@@ -36,21 +38,31 @@ namespace threadmarks_thing
 
             var queryParams = Site.GetCommonParams(Story.BaseUrl, csrfToken);
             var queryString = string.Join("&", queryParams.Select(p => $"{p.Key}={p.Value}"));
-            var url = $"{Site.BaseUrl}/posts/{postId}/preview-threadmark?{queryString}";
+            var url = new Uri(Site.BaseUrl, $"/posts/{postId}/preview-threadmark?{queryString}");
 
-            var fq = new HttpRequestMessage(HttpMethod.Get, url);
-            fq.Headers.Add("Accept", "application/json, text/javascript, */*; q=0.01");
+            var json = await Site.GetAsync(url);
+            File.WriteAllText($"posts/post-{postId}.json", json);
 
-            var fr = await client.SendAsync(fq);
-            var fc = await fr.Content.ReadAsStringAsync();
+            var html = (string)JObject.Parse(json)["html"]["content"];
+            File.WriteAllText($"posts/post-{postId}.html", html);
 
-            File.WriteAllText($"post-{postId}.json", fc);
+            await ParseContent(html);
+        }
 
-            var hhhh = (string)JObject.Parse(fc)["html"]["content"];
+        private async Task ParseContent(string html)
+        {
+            var parser = new HtmlParser();
+            var doc = await parser.ParseDocumentAsync(html);
 
-            Content = hhhh;
-            File.WriteAllText($"post-{postId}.html", hhhh);
-//            return doc;
+            var titleElement = doc.QuerySelector(".threadmarkLabel") as IHtmlSpanElement;
+            var bodyElement = doc.QuerySelector(".bbWrapper") as IHtmlDivElement;
+            var timestampElement = doc.QuerySelector(".u-dt") as IHtmlTimeElement;
+            var authorElement = doc.QuerySelector(".username") as IHtmlAnchorElement;
+
+            Title = titleElement.TextContent;
+            Content = bodyElement.InnerHtml;
+            Timestamp = DateTime.Parse(timestampElement.DateTime);
+            Author = authorElement.TextContent;
         }
     }
 }

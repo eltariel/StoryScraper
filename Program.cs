@@ -20,7 +20,7 @@ namespace threadmarks_thing
         {
             using (var f = File.Open("dump.html", FileMode.OpenOrCreate, FileAccess.Write))
             {
-                string url = "https://forums.sufficientvelocity.com/threads/mauling-snarks-worm.41471/";
+                var url = new Uri("https://forums.sufficientvelocity.com/threads/mauling-snarks-worm.41471/");
 
                 var site = SiteFactory.GetSiteFor(url);
                 var story = site.GetStory(url);

@@ -13,26 +13,30 @@ namespace threadmarks_thing
 {
     public class Category
     {
-        private readonly HttpClient client;
-        private readonly Site site;
-        private readonly Story story;
+        private readonly List<Post> posts = new List<Post>();
 
         public string Id { get; }
         public string Href { get; }
         public string Name { get; }
+
+        public Site Site {get;}
+        public Story Story {get;}
+
+        public IReadOnlyCollection<Post> Posts => posts;
 
         public Category(string id, string href, string name, HttpClient client, Site site, Story story)
         {
             Id = id;
             Href = href;
             Name = name;
-            this.client = client;
-            this.site = site;
-            this.story = story;
+            Site = site;
+            Story = story;
         }
 
-        public async Task<IEnumerable<Post>> GetPostDetails()
+        public async Task<IEnumerable<Post>>  GetPostDetails()
         {
+            posts.Clear();
+
             var doc = await FetchCategoryPage();
             var csrfToken = (doc.GetElementById("XF") as IHtmlHtmlElement).Dataset["csrf"];
 
@@ -40,18 +44,18 @@ namespace threadmarks_thing
             Console.WriteLine($"Category {Id}: {Name} ({markCount} threadmarks)");
 
             var relevantLinks = doc.QuerySelectorAll(".structItem--threadmark a");
-            var posts = await FetchPosts(relevantLinks, csrfToken, doc);
+            var ps = await FetchPosts(relevantLinks, csrfToken, doc);
             
+            posts.AddRange(ps.OrderBy(p => p.Timestamp));
             return posts;
         }
         
         private async Task<IHtmlDocument> FetchCategoryPage()
         {
-            var response = await client.GetAsync(Href);
-            var content = await response.Content.ReadAsStringAsync();
+            var content = await Site.GetAsync(new Uri(Href));
 
-            var p = new HtmlParser();
-            var doc = await p.ParseDocumentAsync(content);
+            var parser = new HtmlParser();
+            var doc = await parser.ParseDocumentAsync(content);
             doc.Location.Href = Href;
 
             return doc;
@@ -65,7 +69,7 @@ namespace threadmarks_thing
             var posts = relevantLinks
                 .OfType<IHtmlAnchorElement>()
                 .Where(l => l.ChildElementCount == 0)
-                .Select(l => new Post(l.Href, l.InnerHtml, this, story, site, client))
+                .Select(l => new Post(l.Href, l.InnerHtml, this, Story, Site))
                 .ToList();
 
             foreach (var p in posts)
@@ -86,26 +90,21 @@ namespace threadmarks_thing
             {
                 var fetchUrl = fetcherDiv.Dataset["fetchurl"];
                 Console.WriteLine($"Fetch url: {fetchUrl}");
-                var l = site.BaseUrl + fetchUrl;
 
-                var form = site.GetHtmlPostData(story.BaseUrl, csrfToken);
+                var url = new Uri(Site.BaseUrl, fetchUrl);
+                var form = Site.GetHtmlPostData(Story.BaseUrl, csrfToken);
 
-                var fq = new HttpRequestMessage(HttpMethod.Post, l);
-                fq.Content = form;
-                fq.Headers.Add("Accept", "application/json, text/javascript, */*; q=0.01");
+                var json = await Site.PostAsync(url, form);
 
-                var fr = await client.SendAsync(fq);
-                var fc = await fr.Content.ReadAsStringAsync();
+                File.WriteAllText("dump.json", json);
 
-                File.WriteAllText("dump.json", fc);
+                var content = (string)JObject.Parse(json)["html"]["content"];
 
-                var hhhh = (string)JObject.Parse(fc)["html"]["content"];
+                var parser = new HtmlParser();
+                var innerDoc = await parser.ParseDocumentAsync(content);
+                innerDoc.Location.Href = url.ToString();
 
-                var fp = new HtmlParser();
-                var fdoc = await fp.ParseDocumentAsync(hhhh);
-                fdoc.Location.Href = l;
-
-                return await FetchPosts(fdoc.Links, csrfToken, fdoc);
+                return await FetchPosts(innerDoc.Links, csrfToken, innerDoc);
             }
 
             return new Post[0];
