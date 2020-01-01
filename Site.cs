@@ -5,7 +5,7 @@ using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
 
-namespace threadmarks_thing
+namespace StoryScraper
 {
     public class Site
     {
@@ -31,8 +31,7 @@ namespace threadmarks_thing
 
         public async Task<string> PostAsync(Uri url, HttpContent data)
         {
-            var req = new HttpRequestMessage(HttpMethod.Post, url);
-            req.Content = data;
+            var req = new HttpRequestMessage(HttpMethod.Post, url) {Content = data};
             req.Headers.Add("Accept", "application/json, text/javascript, */*; q=0.01");
             
             var response = await client.SendAsync(req);

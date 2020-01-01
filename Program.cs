@@ -12,7 +12,7 @@ using AngleSharp.Dom;
 using AngleSharp.Html.Dom;
 using AngleSharp.Html.Parser;
 
-namespace threadmarks_thing
+namespace StoryScraper
 {
     class Program
     {

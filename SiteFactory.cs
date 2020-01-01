@@ -1,11 +1,11 @@
 using System;
 using System.Linq;
 
-namespace threadmarks_thing
+namespace StoryScraper
 {
     public class SiteFactory
     {        
-        private static readonly Site[] sites = new[] {
+        private static readonly Site[] sites = {
             new Site ("Sufficient Velocity", new Uri("https://forums.sufficientvelocity.com"))
         };
 

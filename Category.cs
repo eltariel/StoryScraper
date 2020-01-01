@@ -2,14 +2,13 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Net.Http;
 using System.Threading.Tasks;
 using AngleSharp.Dom;
 using AngleSharp.Html.Dom;
 using AngleSharp.Html.Parser;
 using Newtonsoft.Json.Linq;
 
-namespace threadmarks_thing
+namespace StoryScraper
 {
     public class Category
     {
@@ -24,7 +23,7 @@ namespace threadmarks_thing
 
         public IReadOnlyCollection<Post> Posts => posts;
 
-        public Category(string id, string href, string name, HttpClient client, Site site, Story story)
+        public Category(string id, string href, string name, Site site, Story story)
         {
             Id = id;
             Href = href;

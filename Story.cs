@@ -1,15 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
 using AngleSharp.Dom;
 using AngleSharp.Html.Dom;
 using AngleSharp.Html.Parser;
-using Newtonsoft.Json.Linq;
 
-namespace threadmarks_thing
+namespace StoryScraper
 {
     public class Story
     {
@@ -27,15 +25,24 @@ namespace threadmarks_thing
         }
 
         public string BaseUrl { get; }
+        
+        public string Title { get; private set; }
+
+        public List<Post> Posts { get; } = new List<Post>();
+
+        public IDictionary<string, Category> Categories { get; } = new Dictionary<string, Category>();
+
 
         public async Task GetPosts()
         {
             var page = await GetStoryPage();
-            var categories = await GetCategories(page);
+            var categories = await ParseStory(page);
 
             foreach (var (id, cat) in categories)
             {
+                Categories[id] = cat;
                 var posts = await cat.GetPostDetails();
+                Posts.AddRange(posts);
             }
         }
 
@@ -44,15 +51,18 @@ namespace threadmarks_thing
             return await site.GetAsync(url);
         }
 
-        private async Task<IDictionary<string, Category>> GetCategories(string storyPage)
+        private async Task<IDictionary<string, Category>> ParseStory(string storyPage)
         {
             var p = new HtmlParser();
             var doc = await p.ParseDocumentAsync(storyPage);
             doc.Location.Href = url.ToString();
 
+            var titleElem = doc.QuerySelector<IHtmlHeadingElement>("h1.threadmarkListingHeader-name");
+            Title = (titleElem.TextContent ?? "Unknown").Trim();
+            
             var categories = doc.Links.OfType<IHtmlAnchorElement>()
                 .Where(l => l.Id?.Contains("threadmark-category") ?? false)
-                .Select(l => new Category(l.Id, l.Href, name: l.InnerHtml, client, site, this))
+                .Select(l => new Category(l.Id, l.Href, name: l.InnerHtml, site, this))
                 .ToDictionary(l => l.Id);
 
             return categories;

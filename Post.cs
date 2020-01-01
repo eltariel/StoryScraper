@@ -1,13 +1,12 @@
 ﻿using System;
 using System.IO;
 using System.Linq;
-using System.Net.Http;
 using System.Threading.Tasks;
 using AngleSharp.Html.Dom;
 using AngleSharp.Html.Parser;
 using Newtonsoft.Json.Linq;
 
-namespace threadmarks_thing
+namespace StoryScraper
 {
     public class Post
     {
@@ -18,9 +17,11 @@ namespace threadmarks_thing
             Category = category;
             Story = story;
             Site = site;
+            PostId = Href.Substring(Href.LastIndexOf("post-", StringComparison.InvariantCulture) + 5);
         }
 
         public string Href { get; }
+        public string PostId { get; }
         public string Name { get; }
         public Category Category { get; }
         public Story Story { get; }
@@ -34,17 +35,17 @@ namespace threadmarks_thing
         public async Task FetchContent(string csrfToken)
         {
             Console.WriteLine($"Fetching content for '{Name}'");
-            var postId = Href.Substring(Href.LastIndexOf("post-") + 5);
 
             var queryParams = Site.GetCommonParams(Story.BaseUrl, csrfToken);
             var queryString = string.Join("&", queryParams.Select(p => $"{p.Key}={p.Value}"));
-            var url = new Uri(Site.BaseUrl, $"/posts/{postId}/preview-threadmark?{queryString}");
+            var url = new Uri(Site.BaseUrl, $"/posts/{PostId}/preview-threadmark?{queryString}");
 
             var json = await Site.GetAsync(url);
-            File.WriteAllText($"posts/post-{postId}.json", json);
+            Directory.CreateDirectory("posts/json");
+            File.WriteAllText($"posts/json/post-{PostId}.json", json);
 
             var html = (string)JObject.Parse(json)["html"]["content"];
-            File.WriteAllText($"posts/post-{postId}.html", html);
+            File.WriteAllText($"posts/post-{PostId}.html", html);
 
             await ParseContent(html);
         }
@@ -59,10 +60,10 @@ namespace threadmarks_thing
             var timestampElement = doc.QuerySelector(".u-dt") as IHtmlTimeElement;
             var authorElement = doc.QuerySelector(".username") as IHtmlAnchorElement;
 
-            Title = titleElement.TextContent;
-            Content = bodyElement.InnerHtml;
-            Timestamp = DateTime.Parse(timestampElement.DateTime);
-            Author = authorElement.TextContent;
+            Title = titleElement?.TextContent;
+            Content = bodyElement?.InnerHtml;
+            Timestamp = DateTime.Parse(timestampElement?.DateTime ?? "1901-01-01");
+            Author = authorElement?.TextContent;
         }
     }
 }
