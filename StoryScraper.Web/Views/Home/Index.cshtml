@@ -1,0 +1,11 @@
+﻿@{
+    ViewData["Title"] = "Home Page";
+}
+
+<div class="text-center">
+@using (Html.BeginForm("Details", "Story"))
+{
+    <input type="url" id="storyUrl" name="storyUrl"/>
+    <input type="submit" />
+}
+</div>
