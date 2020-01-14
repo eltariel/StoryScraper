@@ -12,8 +12,6 @@ namespace StoryScraper
 {
     public class Category
     {
-        private readonly List<Post> posts = new List<Post>();
-
         public string Id { get; }
         public string Href { get; }
         public string Name { get; }
@@ -21,7 +19,8 @@ namespace StoryScraper
         public Site Site {get;}
         public Story Story {get;}
 
-        public IReadOnlyCollection<Post> Posts => posts;
+        public List<Post> Posts { get; } = new List<Post>();
+        public int PostCount { get; private set; }
 
         public Category(string id, string href, string name, Site site, Story story)
         {
@@ -32,23 +31,26 @@ namespace StoryScraper
             Story = story;
         }
 
-        public async Task<IEnumerable<Post>>  GetPostDetails()
+        public async Task GetDetails()
         {
-            posts.Clear();
+            await FetchCategoryPage();
+        }
+
+        public async Task<IEnumerable<Post>> GetPosts()
+        {
+            Posts.Clear();
 
             var doc = await FetchCategoryPage();
-            var csrfToken = (doc.GetElementById("XF") as IHtmlHtmlElement).Dataset["csrf"];
 
-            int.TryParse(doc.QuerySelector(".dataList-cell--min").InnerHtml, out var markCount);
-            Console.WriteLine($"Category {Id}: {Name} ({markCount} threadmarks)");
+            var csrfToken = (doc.GetElementById("XF") as IHtmlHtmlElement)?.Dataset["csrf"];
 
             var relevantLinks = doc.QuerySelectorAll(".structItem--threadmark a");
             var ps = await FetchPosts(relevantLinks, csrfToken, doc);
             
-            posts.AddRange(ps.OrderBy(p => p.Timestamp));
-            return posts;
+            Posts.AddRange(ps.OrderBy(p => p.Timestamp));
+            return Posts;
         }
-        
+
         private async Task<IHtmlDocument> FetchCategoryPage()
         {
             var content = await Site.GetAsync(new Uri(Href));
@@ -57,56 +59,54 @@ namespace StoryScraper
             var doc = await parser.ParseDocumentAsync(content);
             doc.Location.Href = Href;
 
+            // Postmark counting is wrong - this is *per user*
+            int.TryParse(doc.QuerySelector(".dataList-cell--min").InnerHtml, out var markCount);
+            PostCount = markCount;
             return doc;
         }
 
         private async Task<IEnumerable<Post>> FetchPosts(
-            IHtmlCollection<IElement> relevantLinks,
+            IEnumerable<IElement> relevantLinks,
             string csrfToken,
             IHtmlDocument doc)
         {
-            var posts = relevantLinks
+            var fetchedPosts = relevantLinks
                 .OfType<IHtmlAnchorElement>()
                 .Where(l => l.ChildElementCount == 0)
                 .Select(l => new Post(l.Href, l.InnerHtml, this, Story, Site))
                 .ToList();
 
-            foreach (var p in posts)
+            foreach (var p in fetchedPosts)
             {
                 Console.WriteLine($"Found post: {p.Name} @ {p.Href}");
                 await p.FetchContent(csrfToken);
             }
 
-            posts.AddRange(await FetchAdditional(csrfToken, doc));
-
-            return posts;
-        }
-
-        private async Task<IEnumerable<Post>> FetchAdditional(string csrfToken, IHtmlDocument doc)
-        {
-            var fetcherDiv = doc.QuerySelector("[data-xf-click=\"threadmark-fetcher\"]") as IHtmlDivElement;
-            if (fetcherDiv != null)
+            if (doc.QuerySelector("[data-xf-click=\"threadmark-fetcher\"]") is IHtmlDivElement fetcherDiv)
             {
                 var fetchUrl = fetcherDiv.Dataset["fetchurl"];
-                Console.WriteLine($"Fetch url: {fetchUrl}");
 
-                var url = new Uri(Site.BaseUrl, fetchUrl);
-                var form = Site.GetHtmlPostData(Story.BaseUrl, csrfToken);
-
-                var json = await Site.PostAsync(url, form);
-
-                File.WriteAllText("dump.json", json);
-
-                var content = (string)JObject.Parse(json)["html"]["content"];
-
-                var parser = new HtmlParser();
-                var innerDoc = await parser.ParseDocumentAsync(content);
-                innerDoc.Location.Href = url.ToString();
-
-                return await FetchPosts(innerDoc.Links, csrfToken, innerDoc);
+                var ret = await ParseAdditionalPosts(csrfToken, fetchUrl);
+                fetchedPosts.AddRange(ret);
             }
 
-            return new Post[0];
+            return fetchedPosts;
+        }
+
+        private async Task<IEnumerable<Post>> ParseAdditionalPosts(string csrfToken, string fetchUrl)
+        {
+            Console.WriteLine($"Fetch url: {fetchUrl}");
+            var url = new Uri(Site.BaseUrl, fetchUrl);
+            var form = Site.GetHtmlPostData(Story.BaseUrl, csrfToken);
+
+            var json = await Site.PostAsync(url, form);
+
+            var content = (string) JObject.Parse(json)["html"]["content"];
+            var parser = new HtmlParser();
+            var doc = await parser.ParseDocumentAsync(content);
+            doc.Location.Href = url.ToString();
+
+            return await FetchPosts(doc.Links, csrfToken, doc);
         }
     }
 }

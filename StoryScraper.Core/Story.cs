@@ -28,30 +28,33 @@ namespace StoryScraper
         
         public string Title { get; private set; }
 
-        public List<Post> Posts { get; } = new List<Post>();
+        public IEnumerable<Post> Posts => Categories.SelectMany(c => c.Posts);
 
-        public IDictionary<string, Category> Categories { get; } = new Dictionary<string, Category>();
+        public List<Category> Categories { get; } = new List<Category>();
 
-
-        public async Task GetPosts()
+        public async Task GetCategories()
         {
             var page = await GetStoryPage();
             var categories = await ParseStory(page);
+            
+            Categories.Clear();
+            Categories.AddRange(categories);
+        }
 
-            foreach (var (id, cat) in categories)
+        public async Task GetPosts()
+        {
+            foreach (var cat in Categories)
             {
-                Categories[id] = cat;
-                var posts = await cat.GetPostDetails();
-                Posts.AddRange(posts);
+                var posts = await cat.GetPosts();
             }
         }
 
-        public async Task<string> GetStoryPage()
+        private async Task<string> GetStoryPage()
         {
             return await site.GetAsync(url);
         }
 
-        private async Task<IDictionary<string, Category>> ParseStory(string storyPage)
+        private async Task<List<Category>> ParseStory(string storyPage)
         {
             var p = new HtmlParser();
             var doc = await p.ParseDocumentAsync(storyPage);
@@ -63,7 +66,12 @@ namespace StoryScraper
             var categories = doc.Links.OfType<IHtmlAnchorElement>()
                 .Where(l => l.Id?.Contains("threadmark-category") ?? false)
                 .Select(l => new Category(l.Id, l.Href, name: l.InnerHtml, site, this))
-                .ToDictionary(l => l.Id);
+                .ToList();
+
+            foreach (var cat in categories)
+            { 
+                await cat.GetDetails();
+            }
 
             return categories;
         }

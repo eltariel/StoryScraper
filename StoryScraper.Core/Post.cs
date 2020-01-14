@@ -40,12 +40,17 @@ namespace StoryScraper
             var queryString = string.Join("&", queryParams.Select(p => $"{p.Key}={p.Value}"));
             var url = new Uri(Site.BaseUrl, $"/posts/{PostId}/preview-threadmark?{queryString}");
 
-            var json = await Site.GetAsync(url);
+            var jsonCacheFile = $"posts/json/post-{PostId}.json";
+            var readFromCache = File.Exists(jsonCacheFile);
+            var json = !readFromCache
+                ? await Site.GetAsync(url)
+                : await File.ReadAllTextAsync(jsonCacheFile);
+            
             Directory.CreateDirectory("posts/json");
-            File.WriteAllText($"posts/json/post-{PostId}.json", json);
+            await File.WriteAllTextAsync(jsonCacheFile, json);
 
             var html = (string)JObject.Parse(json)["html"]["content"];
-            File.WriteAllText($"posts/post-{PostId}.html", html);
+            await File.WriteAllTextAsync($"posts/post-{PostId}.html", html);
 
             await ParseContent(html);
         }

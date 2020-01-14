@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Threading;
@@ -8,23 +9,24 @@ namespace StoryScraper
 {
     public class RateLimitHandler : DelegatingHandler
     {
-        private const int MaxRetries = 5;
-        private const int InitialDelay = 200;
+        private const int MaxRetries = 15;
+        private const int BaseDelay = 100;    // first delay will be BaseDelay * 2
 
         public RateLimitHandler(HttpMessageHandler innerHandler)
             : base(innerHandler)
         {
         }
 
-        public bool HitRateLimit {get; private set; } = false;
+        public bool HitRateLimit { get; private set; } = false;
 
         protected override async Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request,
             CancellationToken cancellationToken)
         {
-            var delay = TimeSpan.FromMilliseconds(InitialDelay);
             HttpResponseMessage response = null;
-            for (int i = 0; i < MaxRetries; i++)
+            foreach (var delay in Enumerable
+                .Range(0, MaxRetries)
+                .Select(i => TimeSpan.FromMilliseconds(BaseDelay * (2 << i))))
             {
                 response = await base.SendAsync(request, cancellationToken);
                 if (response.StatusCode != HttpStatusCode.TooManyRequests)
@@ -34,8 +36,7 @@ namespace StoryScraper
                 }
 
                 Console.WriteLine($"Rate limited, waiting {delay.TotalSeconds}s");
-                await Task.Delay(delay);
-                delay *= 2;
+                await Task.Delay(delay, cancellationToken);
                 HitRateLimit = true;
             }
 

@@ -38,9 +38,10 @@ namespace StoryScraper
             return await response.Content.ReadAsStringAsync();
         }
 
-        public Story GetStory(Uri url)
+        public async Task<Story> GetStory(Uri url)
         {
             var s = new Story(url, this, client);
+            await s.GetCategories();
             return s;
         }
 
