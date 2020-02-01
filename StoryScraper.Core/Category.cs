@@ -21,6 +21,8 @@ namespace StoryScraper
 
         public List<Post> Posts { get; } = new List<Post>();
         public int PostCount { get; private set; }
+        
+        public Uri RssLink { get; private set; }
 
         public Category(string id, string href, string name, Site site, Story story)
         {
@@ -59,9 +61,18 @@ namespace StoryScraper
             var doc = await parser.ParseDocumentAsync(content);
             doc.Location.Href = Href;
 
-            // Postmark counting is wrong - this is *per user*
-            int.TryParse(doc.QuerySelector(".dataList-cell--min").InnerHtml, out var markCount);
-            PostCount = markCount;
+            var postCount = doc.QuerySelectorAll("td.dataList-cell--min");
+            PostCount = postCount.Aggregate(0, (posts, element) =>
+            {
+                int.TryParse(element.InnerHtml, out var count);
+                return posts + count;
+            });
+
+            if (doc.QuerySelector("a.rss") is IHtmlAnchorElement rssElement)
+            {
+                RssLink = new Uri(rssElement.Href);
+            }
+            
             return doc;
         }
 
