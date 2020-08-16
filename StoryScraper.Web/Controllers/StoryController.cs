@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
+using StoryScraper.Core;
 using StoryScraper.Web.Models;
 
 namespace StoryScraper.Web.Controllers

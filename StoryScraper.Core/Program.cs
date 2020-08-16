@@ -2,27 +2,22 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Net;
-using System.Net.Http;
-using System.Text;
-using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-using System.Xml;
-using AngleSharp.Dom;
-using AngleSharp.Html.Dom;
-using AngleSharp.Html.Parser;
+using AngleSharp.Common;
+using StoryScraper.Core.Utils;
 
-namespace StoryScraper
+namespace StoryScraper.Core
 {
     class Program
     {
         static async Task Main(string[] args)
         {
-            var url = new Uri("https://forums.sufficientvelocity.com/threads/mauling-snarks-worm.41471/");
+            //var url = new Uri("https://forums.sufficientvelocity.com/threads/mauling-snarks-worm.41471/");
+            //var url = new Uri("https://forums.spacebattles.com/threads/going-for-a-walk-worm-hellsing-ultimate-abridged.812348/");
+            var url = new Uri("https://forums.sufficientvelocity.com/threads/taylor-varga-worm-luna-varga.32119/");
 
             var site = SiteFactory.GetSiteFor(url);
             var story = await site.GetStory(url);
-            // await story.GetCategories();
 
             Console.WriteLine($"Found {story.Categories.Count} categories:");
             foreach (var cat in story.Categories)
@@ -33,7 +28,7 @@ namespace StoryScraper
             var interestingCategories = story
                 .Categories
                 .Where(c => !new[] {"Staff Post", "Media"}.Contains(c.Name))
-            .ToList();
+                .ToList();
 
             foreach (var cat in interestingCategories)
             {
@@ -46,27 +41,29 @@ namespace StoryScraper
                 .OrderBy(p => p.Timestamp)
                 .ToList();
 
-            var postList = string.Join("\n",
-                orderedPosts.Select(p => $"<li><a href='posts/post-{p.PostId}.html'>{p.Title}</a></li>"));
+            var title = story.Title.ToValidPath();
+            var outPath = $"out/{title}";
+            var tocPath = $"{outPath}/{title}.html";
+            var postPaths = new List<string>();
 
-            var indexPage = $"<html><body><h1>{story.Title}</h1><ul>{postList}</ul></body></html>";
-
-            Console.WriteLine(indexPage);
-            await File.WriteAllTextAsync("toc.html", indexPage);
-
-            var outPath = $"out/{story.Title}";
             Directory.CreateDirectory(outPath);
-            using var f = new StreamWriter($"{outPath}/{story.Title}.html");
-            f.Write($"<html><head><title>{story.Title}</title></head><body><h1>{story.Title}</h1><h2>Contents</h2><ul>");
+            await using var f = new StreamWriter(tocPath);
+            await f.WriteAsync($"<html><head><title>{story.Title}</title></head><body><h1>{story.Title}</h1><h2>Contents</h2><ul>");
             foreach (var post in orderedPosts)
             {
                 var postFile = $"post-{post.PostId}.html";
-                f.Write($"<li><a href=\"{postFile}\">{post.Category.Name}: {post.Title}</a></li>");
-                await File.WriteAllTextAsync(Path.Combine(outPath, postFile),
+                var postPath = $"{outPath}/{postFile}";
+                postPaths.Add(postPath);
+                
+                await f.WriteAsync($"<li><a href=\"{postFile}\">{post.Category.Name}: {post.Title}</a></li>");
+                await File.WriteAllTextAsync(postPath,
                     $"<html><head><title>{story.Title}</title></head>" +
                     $"<body><h2>{post.Category.Name}: {post.Title}</h2>{post.Content}</body></html>");
             }
-            f.Write("</ul></body></html>");
+            await f.WriteAsync("</ul></body></html>");
+
+            var pandoc = new Pandoc(useWsl: false);
+            await pandoc.ToEpub(outPath, title, postPaths, story);
         }
     }
 }

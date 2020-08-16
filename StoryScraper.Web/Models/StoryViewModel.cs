@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using StoryScraper.Core;
 
 namespace StoryScraper.Web.Models
 {

@@ -5,7 +5,7 @@ using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace StoryScraper
+namespace StoryScraper.Core
 {
     public class RateLimitHandler : DelegatingHandler
     {

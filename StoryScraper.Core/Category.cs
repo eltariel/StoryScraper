@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using AngleSharp.Dom;
@@ -8,7 +7,7 @@ using AngleSharp.Html.Dom;
 using AngleSharp.Html.Parser;
 using Newtonsoft.Json.Linq;
 
-namespace StoryScraper
+namespace StoryScraper.Core
 {
     public class Category
     {

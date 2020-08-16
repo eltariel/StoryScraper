@@ -7,7 +7,7 @@ using AngleSharp.Dom;
 using AngleSharp.Html.Dom;
 using AngleSharp.Html.Parser;
 
-namespace StoryScraper
+namespace StoryScraper.Core
 {
     public class Story
     {
@@ -39,14 +39,6 @@ namespace StoryScraper
             
             Categories.Clear();
             Categories.AddRange(categories);
-        }
-
-        public async Task GetPosts()
-        {
-            foreach (var cat in Categories)
-            {
-                var posts = await cat.GetPosts();
-            }
         }
 
         private async Task<string> GetStoryPage()

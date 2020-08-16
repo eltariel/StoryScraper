@@ -1,17 +1,17 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
+using StoryScraper.Core.Utils;
 
-namespace StoryScraper
+namespace StoryScraper.Core
 {
     public class Site
     {
         private static readonly CookieContainer cookieContainer = new CookieContainer();
         private static readonly HttpMessageHandler clientHandler = new RateLimitHandler(
-            new HttpClientHandler() { CookieContainer = cookieContainer });
+            new HttpClientHandler { CookieContainer = cookieContainer });
         private static readonly HttpClient client = new HttpClient(clientHandler);
 
         public Site(string name, Uri baseUrl)
@@ -23,6 +23,8 @@ namespace StoryScraper
         public Uri BaseUrl { get; }
         public string Name { get; }
 
+        public string CachePath => $"cache/site-{Name.ToValidPath()}";
+        
         public async Task<string> GetAsync(Uri url)
         {
             var response = await client.GetAsync(url);
@@ -54,7 +56,6 @@ namespace StoryScraper
             };
 
         public FormUrlEncodedContent GetHtmlPostData(string url, string csrfToken) =>
-            new FormUrlEncodedContent(GetCommonParams(url, csrfToken)
-        );
+            new FormUrlEncodedContent(GetCommonParams(url, csrfToken));
     }
 }

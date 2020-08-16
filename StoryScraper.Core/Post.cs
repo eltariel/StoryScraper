@@ -6,7 +6,7 @@ using AngleSharp.Html.Dom;
 using AngleSharp.Html.Parser;
 using Newtonsoft.Json.Linq;
 
-namespace StoryScraper
+namespace StoryScraper.Core
 {
     public class Post
     {
@@ -40,17 +40,17 @@ namespace StoryScraper
             var queryString = string.Join("&", queryParams.Select(p => $"{p.Key}={p.Value}"));
             var url = new Uri(Site.BaseUrl, $"/posts/{PostId}/preview-threadmark?{queryString}");
 
-            var jsonCacheFile = $"posts/json/post-{PostId}.json";
+            var jsonCacheFile = $"{Site.CachePath}/posts/json/post-{PostId}.json";
             var readFromCache = File.Exists(jsonCacheFile);
             var json = !readFromCache
                 ? await Site.GetAsync(url)
                 : await File.ReadAllTextAsync(jsonCacheFile);
             
-            Directory.CreateDirectory("posts/json");
+            Directory.CreateDirectory($"{Site.CachePath}/posts/json");
             await File.WriteAllTextAsync(jsonCacheFile, json);
 
             var html = (string)JObject.Parse(json)["html"]["content"];
-            await File.WriteAllTextAsync($"posts/post-{PostId}.html", html);
+            await File.WriteAllTextAsync($"{Site.CachePath}/posts/post-{PostId}.html", html);
 
             await ParseContent(html);
         }
