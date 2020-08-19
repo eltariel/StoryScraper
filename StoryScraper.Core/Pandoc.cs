@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+//using System.Linq.AsyncEnumerable;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -17,67 +18,96 @@ namespace StoryScraper.Core
             this.useWsl = useWsl;
         }
         
-        public async Task ToEpub(string outPath, string title, List<string> postPaths, Story story)
+        public void ToEpub(string title, Story story, IEnumerable<string> excludedCategories)
         {
-            var postsMarkdown = new List<string>();
-            foreach (var post in postPaths)
-            {
-                var postMarkdown = await PostHtmlToMarkdown(post);
-                postsMarkdown.Add(postMarkdown);
-            }
+            var posts = story
+                .Categories
+                .Where(c => !excludedCategories.Contains(c.Name))
+                .SelectMany(p => p.Posts)
+                .OrderBy(p => p.Timestamp)
+                .ToList();
 
-            var metadata = await GenerateEpubMetadata(outPath, story);
-
-            await PostsToEpub(title, postsMarkdown, metadata);
+            PostsToEpub(title, posts, story);
         }
 
-        private async Task PostsToEpub(string title, List<string> postsMarkdown, string metadata)
+        private void PostToMarkdown(Post post, StreamWriter parentStdin)
+        {
+            Console.WriteLine($"[Pandoc] Post '{post.Title}' to markdown");
+            var mdPandoc = MakePandocProcess("--verbose -t markdown -f html");
+
+            mdPandoc.OutputDataReceived += (s, e) =>
+            {
+                if (!string.IsNullOrEmpty(e.Data))
+                {
+                    (parentStdin ?? Console.Out).WriteLine(e.Data);
+                }
+            };
+            mdPandoc.BeginOutputReadLine();
+
+            var inputBuffer = Encoding.UTF8.GetBytes(post.AsHtml);
+            mdPandoc.StandardInput.BaseStream.Write(inputBuffer, 0, inputBuffer.Length);
+            mdPandoc.StandardInput.Close();
+            mdPandoc.WaitForExit();
+            
+            parentStdin?.WriteLine("\n");
+        }
+
+        private void PostsToEpub(string title, List<Post> posts, Story story)
         {
             Console.WriteLine($"Posts Markdown to EPUB");
 
-            var postFiles = string.Join("\" \"", postsMarkdown);
-            var pandocArgs = $"--verbose --toc -o \"{title}.epub\" \"{metadata}\" \"{postFiles}\"";
+            var pandocArgs = $"--verbose --toc -o \"{title}.epub\" -f markdown";
             var pandocProcess = MakePandocProcess(pandocArgs);
-            pandocProcess.Start();
+            
+            pandocProcess.OutputDataReceived += (s, e) =>
+            {
+                if (!string.IsNullOrEmpty(e.Data))
+                {
+                    Console.WriteLine(e.Data);
+                }
+            };
+            pandocProcess.BeginOutputReadLine();
+
+            pandocProcess.StandardInput.WriteLine(GetEpubMetadata(story));
+            Directory.CreateDirectory("temptemp");
+            foreach (var post in posts)
+            {
+                PostToMarkdown(post, pandocProcess.StandardInput);
+            }
+
+            pandocProcess.StandardInput.Close();
             pandocProcess.WaitForExit();
             Console.WriteLine($"Pandoc exit code: {pandocProcess.ExitCode}");
-            while (await pandocProcess.StandardError.ReadLineAsync() is {} l)
-            {
-                Console.WriteLine($"  [stderr] {l}");
-            }
         }
 
-        private async Task<string> PostHtmlToMarkdown(string post)
-        {
-            var postMarkdown = $"{post}.md";
-            Console.WriteLine($"Post to markdown [{postMarkdown}]");
-            var mdPandoc = MakePandocProcess($"--verbose -o \"{postMarkdown}\" \"{post}\"");
-            mdPandoc.Start();
-            mdPandoc.WaitForExit();
-            while (await mdPandoc.StandardError.ReadLineAsync() is {} l)
-            {
-                Console.WriteLine($"  [stderr] {l}");
-            }
-
-            return postMarkdown;
-        }
-
-        private async Task<string> GenerateEpubMetadata(string outPath, Story story)
-        {
-            var metadata = "---\n" +
-                           $"title: {story.Title}\n" +
-                           $"author: {story.Posts.First().Author}\n" +
-                           $"lang: en-us\n" +
-                           "...";
-
-            var metadataPath = $"{outPath}/_metadata.md";
-            await File.WriteAllTextAsync(metadataPath, metadata);
-            return metadataPath;
-        }
+        private static string GetEpubMetadata(Story story) => "---\n" +
+                                                              $"title: {story.Title}\n" +
+                                                              $"author: {story.Posts.First().Author}\n" +
+                                                              $"lang: en-us\n" +
+                                                              "...\n\n";
 
         private Process MakePandocProcess(string pandocArgs)
         {
-            var psi = new ProcessStartInfo
+            var psi = DefaultProcessStartInfo;
+            psi.Arguments = useWsl ? $"pandoc {pandocArgs}" : pandocArgs;
+
+            Console.WriteLine($"  [Pandoc] \"{psi.FileName}\" {psi.Arguments}");
+            var pandocProcess = new Process {StartInfo = psi, EnableRaisingEvents = true};
+            pandocProcess.ErrorDataReceived += (s, e) => 
+            {
+                if (!string.IsNullOrEmpty(e.Data))
+                {
+                    Console.Out.WriteLine($"  [stderr] {e.Data}");
+                }
+            };
+            
+            pandocProcess.Start();
+            pandocProcess.BeginErrorReadLine();
+            return pandocProcess;
+        }
+
+        private ProcessStartInfo DefaultProcessStartInfo =>
+            new ProcessStartInfo
             {
                 RedirectStandardError = true,
                 StandardErrorEncoding = Encoding.UTF8,
@@ -85,24 +115,9 @@ namespace StoryScraper.Core
                 StandardInputEncoding = Encoding.UTF8,
                 RedirectStandardOutput = true,
                 StandardOutputEncoding = Encoding.UTF8,
-                WorkingDirectory = Environment.CurrentDirectory
+                WorkingDirectory = Environment.CurrentDirectory,
+                UseShellExecute = false,
+                FileName = useWsl ? "wsl" : @"C:\Program Files\Pandoc\pandoc.exe"
             };
-
-            if (useWsl)
-            {
-                psi.FileName = "wsl";
-                psi.Arguments = $"pandoc {pandocArgs}";
-            }
-            else
-            {
-                psi.FileName = @"C:\Program Files\Pandoc\pandoc.exe";
-                psi.Arguments = pandocArgs;
-            }
-
-            var pandocProcess = new Process {StartInfo = psi, EnableRaisingEvents = true};
-            pandocProcess.OutputDataReceived += (s, e) => Console.Out.Write($"pout: {e.Data}");
-            pandocProcess.ErrorDataReceived += (s, e) => Console.Out.Write($"perr: {e.Data}");
-            return pandocProcess;
-        }
     }
 }

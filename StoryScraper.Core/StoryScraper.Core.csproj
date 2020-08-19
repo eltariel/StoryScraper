@@ -6,6 +6,8 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="AngleSharp" Version="0.14.0-alpha-788" />
+    <PackageReference Include="Mono.Options" Version="6.6.0.161" />
     <PackageReference Include="Newtonsoft.Json" Version="12.0.3" />
+    <PackageReference Include="System.Linq.Async" Version="4.1.1" />
   </ItemGroup>
 </Project>
