@@ -531,4 +531,6 @@ MigrationBackup/
 
 # End of https://www.gitignore.io/api/csharp,dotnetcore,visualstudiocode,visualstudio
 
+.idea/
+WorkDir/
 posts/*
