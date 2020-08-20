@@ -10,8 +10,11 @@ namespace StoryScraper.Core
 {
     public class Post
     {
-        public Post(string href, string name, Category category, Story story, Site site)
+        private readonly Config config;
+
+        public Post(string href, string name, Category category, Story story, Site site, Config config)
         {
+            this.config = config;
             Href = href;
             Name = name;
             Category = category;

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
@@ -9,13 +10,15 @@ namespace StoryScraper.Core
 {
     public class Site
     {
+        private readonly Config config;
         private static readonly CookieContainer cookieContainer = new CookieContainer();
         private static readonly HttpMessageHandler clientHandler = new RateLimitHandler(
             new HttpClientHandler { CookieContainer = cookieContainer });
         private static readonly HttpClient client = new HttpClient(clientHandler);
 
-        public Site(string name, Uri baseUrl)
+        public Site(string name, Uri baseUrl, Config config)
         {
+            this.config = config;
             Name = name;
             BaseUrl = baseUrl;
         }
@@ -23,7 +26,7 @@ namespace StoryScraper.Core
         public Uri BaseUrl { get; }
         public string Name { get; }
 
-        public string CachePath => $"cache/site-{Name.ToValidPath()}";
+        public string CachePath => Path.Combine(config.CachePath, $"site-{Name.ToValidPath()}");
         
         public async Task<string> GetAsync(Uri url)
         {
@@ -42,7 +45,7 @@ namespace StoryScraper.Core
 
         public async Task<Story> GetStory(Uri url)
         {
-            var s = new Story(url, this, client);
+            var s = new Story(url, this, client, config);
             await s.GetCategories();
             return s;
         }

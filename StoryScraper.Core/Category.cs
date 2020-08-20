@@ -11,6 +11,7 @@ namespace StoryScraper.Core
 {
     public class Category
     {
+        private readonly Config config;
         public string Id { get; }
         public string Href { get; }
         public string Name { get; }
@@ -23,8 +24,9 @@ namespace StoryScraper.Core
         
         public Uri RssLink { get; private set; }
 
-        public Category(string id, string href, string name, Site site, Story story)
+        public Category(string id, string href, string name, Site site, Story story, Config config)
         {
+            this.config = config;
             Id = id;
             Href = href;
             Name = name;
@@ -83,7 +85,7 @@ namespace StoryScraper.Core
             var fetchedPosts = relevantLinks
                 .OfType<IHtmlAnchorElement>()
                 .Where(l => l.ChildElementCount == 0)
-                .Select(l => new Post(l.Href, l.InnerHtml, this, Story, Site))
+                .Select(l => new Post(l.Href, l.InnerHtml, this, Story, Site, config))
                 .ToList();
 
             foreach (var p in fetchedPosts)

@@ -14,12 +14,14 @@ namespace StoryScraper.Core
         private readonly Uri url;
         private readonly Site site;
         private readonly HttpClient client;
+        private readonly Config config;
 
-        public Story(Uri url, Site site, HttpClient client)
+        public Story(Uri url, Site site, HttpClient client, Config config)
         {
             this.url = url;
             this.site = site;
             this.client = client;
+            this.config = config;
 
             BaseUrl = url.ToString().Replace(site.BaseUrl.ToString(), "");
         }
@@ -57,7 +59,7 @@ namespace StoryScraper.Core
             
             var categories = doc.Links.OfType<IHtmlAnchorElement>()
                 .Where(l => l.Id?.Contains("threadmark-category") ?? false)
-                .Select(l => new Category(l.Id, l.Href, name: l.InnerHtml, site, this))
+                .Select(l => new Category(l.Id, l.Href, name: l.InnerHtml, site, this, config))
                 .ToList();
 
             foreach (var cat in categories)

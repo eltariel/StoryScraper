@@ -3,31 +3,30 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-//using System.Linq.AsyncEnumerable;
 using System.Text;
-using System.Threading.Tasks;
+using StoryScraper.Core.Utils;
 
-namespace StoryScraper.Core
+namespace StoryScraper.Core.Conversion
 {
     public class Pandoc
     {
-        private readonly bool useWsl;
+        private readonly Config config;
 
-        public Pandoc(bool useWsl)
+        public Pandoc(Config config)
         {
-            this.useWsl = useWsl;
+            this.config = config;
         }
         
-        public void ToEpub(string title, Story story, IEnumerable<string> excludedCategories)
+        public void ToEpub(Story story)
         {
             var posts = story
                 .Categories
-                .Where(c => !excludedCategories.Contains(c.Name))
+                .Where(c => !config.ExcludedCategories.Contains(c.Name))
                 .SelectMany(p => p.Posts)
                 .OrderBy(p => p.Timestamp)
                 .ToList();
 
-            PostsToEpub(title, posts, story);
+            PostsToEpub(posts, story);
         }
 
         private void PostToMarkdown(Post post, StreamWriter parentStdin)
@@ -52,11 +51,11 @@ namespace StoryScraper.Core
             parentStdin?.WriteLine("\n");
         }
 
-        private void PostsToEpub(string title, List<Post> posts, Story story)
+        private void PostsToEpub(IEnumerable<Post> posts, Story story)
         {
             Console.WriteLine($"Posts Markdown to EPUB");
 
-            var pandocArgs = $"--verbose --toc -o \"{title}.epub\" -f markdown";
+            var pandocArgs = $"--verbose --toc -o \"{story.Title.ToValidPath()}.epub\" -f markdown";
             var pandocProcess = MakePandocProcess(pandocArgs);
             
             pandocProcess.OutputDataReceived += (s, e) =>
@@ -86,28 +85,9 @@ namespace StoryScraper.Core
                                                               $"lang: en-us\n" +
                                                               "...\n\n";
 
-        private Process MakePandocProcess(string pandocArgs)
+        private Process MakePandocProcess(string args)
         {
-            var psi = DefaultProcessStartInfo;
-            psi.Arguments = useWsl ? $"pandoc {pandocArgs}" : pandocArgs;
-
-            Console.WriteLine($"  [Pandoc] \"{psi.FileName}\" {psi.Arguments}");
-            var pandocProcess = new Process {StartInfo = psi, EnableRaisingEvents = true};
-            pandocProcess.ErrorDataReceived += (s, e) => 
-            {
-                if (!string.IsNullOrEmpty(e.Data))
-                {
-                    Console.Out.WriteLine($"  [stderr] {e.Data}");
-                }
-            };
-            
-            pandocProcess.Start();
-            pandocProcess.BeginErrorReadLine();
-            return pandocProcess;
-        }
-
-        private ProcessStartInfo DefaultProcessStartInfo =>
-            new ProcessStartInfo
+            var psi = new ProcessStartInfo
             {
                 RedirectStandardError = true,
                 StandardErrorEncoding = Encoding.UTF8,
@@ -117,7 +97,23 @@ namespace StoryScraper.Core
                 StandardOutputEncoding = Encoding.UTF8,
                 WorkingDirectory = Environment.CurrentDirectory,
                 UseShellExecute = false,
-                FileName = useWsl ? "wsl" : @"C:\Program Files\Pandoc\pandoc.exe"
+                FileName = config.UseWsl ? "wsl" : config.PandocPath,
+                Arguments = config.UseWsl ? $"{config.PandocPath} {args}" : args
             };
+
+            Console.WriteLine($"  [Pandoc] \"{psi.FileName}\" {psi.Arguments}");
+            var process = new Process {StartInfo = psi, EnableRaisingEvents = true};
+            process.ErrorDataReceived += (s, e) => 
+            {
+                if (!string.IsNullOrEmpty(e.Data))
+                {
+                    Console.Out.WriteLine($"  [stderr] {e.Data}");
+                }
+            };
+            
+            process.Start();
+            process.BeginErrorReadLine();
+            return process;
+        }
     }
 }

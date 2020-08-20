@@ -12,7 +12,8 @@ namespace StoryScraper.Web.Controllers
         public async Task<IActionResult> Details(string storyUrl)
         {
             var url = new Uri(storyUrl);
-            var site = SiteFactory.GetSiteFor(url);
+            var c = new Config(null, null, null, null, false);
+            var site = new SiteFactory(c).GetSiteFor(url);
             var story = await site.GetStory(url);
             
             var model = new StoryViewModel(url, story);
