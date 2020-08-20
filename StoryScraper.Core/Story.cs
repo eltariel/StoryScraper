@@ -29,6 +29,7 @@ namespace StoryScraper.Core
         public string BaseUrl { get; }
         
         public string Title { get; private set; }
+        public string Author { get; private set; }
 
         public IEnumerable<Post> Posts => Categories.SelectMany(c => c.Posts);
 
@@ -56,6 +57,8 @@ namespace StoryScraper.Core
 
             var titleElem = doc.QuerySelector<IHtmlHeadingElement>("h1.threadmarkListingHeader-name");
             Title = (titleElem.TextContent ?? "Unknown").Trim();
+            var authorElem = doc.QuerySelector<IHtmlAnchorElement>(".username.u-concealed");
+            Author = (authorElem.TextContent ?? "Unknown").Trim();
             
             var categories = doc.Links.OfType<IHtmlAnchorElement>()
                 .Where(l => l.Id?.Contains("threadmark-category") ?? false)

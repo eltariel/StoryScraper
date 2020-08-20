@@ -31,7 +31,7 @@ namespace StoryScraper.Core.Conversion
 
         private void PostToMarkdown(Post post, StreamWriter parentStdin)
         {
-            Console.WriteLine($"[Pandoc] Post '{post.Title}' to markdown");
+            //Console.WriteLine($"[Pandoc] Post '{post.Title}' to markdown");
             var mdPandoc = MakePandocProcess("--verbose -t markdown -f html");
 
             mdPandoc.OutputDataReceived += (s, e) =>
@@ -68,7 +68,6 @@ namespace StoryScraper.Core.Conversion
             pandocProcess.BeginOutputReadLine();
 
             pandocProcess.StandardInput.WriteLine(GetEpubMetadata(story));
-            Directory.CreateDirectory("temptemp");
             foreach (var post in posts)
             {
                 PostToMarkdown(post, pandocProcess.StandardInput);
@@ -81,7 +80,7 @@ namespace StoryScraper.Core.Conversion
 
         private static string GetEpubMetadata(Story story) => "---\n" +
                                                               $"title: {story.Title}\n" +
-                                                              $"author: {story.Posts.First().Author}\n" +
+                                                              $"author: {story.Author}\n" +
                                                               $"lang: en-us\n" +
                                                               "...\n\n";
 
@@ -101,7 +100,7 @@ namespace StoryScraper.Core.Conversion
                 Arguments = config.UseWsl ? $"{config.PandocPath} {args}" : args
             };
 
-            Console.WriteLine($"  [Pandoc] \"{psi.FileName}\" {psi.Arguments}");
+            //Console.WriteLine($"  [Pandoc] \"{psi.FileName}\" {psi.Arguments}");
             var process = new Process {StartInfo = psi, EnableRaisingEvents = true};
             process.ErrorDataReceived += (s, e) => 
             {

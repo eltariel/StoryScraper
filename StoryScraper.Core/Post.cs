@@ -75,6 +75,8 @@ namespace StoryScraper.Core
         }
 
         public string AsHtml => $"<html><head><title>{Story.Title}</title></head>" +
-                       $"<body><h2>{Category.Name}: {Title}</h2>{Content}</body></html>\n\n";
+                                $"<body><h2>{Category.Name}: {Title}" +
+                                (Story.Author == Author ? "" : $" (by {Author})") +
+                                $"</h2>{Content}</body></html>\n\n";
     }
 }
