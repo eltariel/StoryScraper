@@ -35,6 +35,7 @@ namespace StoryScraper.Core
         public string Author { get; private set; }
         public string Title { get; private set; }
         public string Content { get; private set; }
+        public string AsHtml { get; private set; }
 
         public async Task FetchContent(string csrfToken)
         {
@@ -54,7 +55,7 @@ namespace StoryScraper.Core
             await File.WriteAllTextAsync(jsonCacheFile, json);
 
             var html = (string)JObject.Parse(json)["html"]["content"];
-            await File.WriteAllTextAsync($"{Site.CachePath}/posts/post-{PostId}.html", html);
+            await File.WriteAllTextAsync($"{Site.CachePath}/posts/post-raw-{PostId}.html", html);
 
             await ParseContent(html);
         }
@@ -64,27 +65,76 @@ namespace StoryScraper.Core
             var context = BrowsingContext.New(Configuration.Default);
             var doc = await context.OpenAsync(res => res.Content(html).Address(Site.BaseUrl));
 
+            var bodyElement = GetProperties(doc);
+            FixImageSourceUrls(doc);
+            ReformatQuotes(doc);
+            InsertPostTitle(doc);
+            TrimMetadata(doc, bodyElement);
+
+            AsHtml = doc.Prettify();
+        }
+
+        private IHtmlDivElement GetProperties(IDocument doc)
+        {
             var titleElement = doc.QuerySelector<IHtmlSpanElement>(".threadmarkLabel");
             var bodyElement = doc.QuerySelector<IHtmlDivElement>(".bbWrapper");
             var timestampElement = doc.QuerySelector<IHtmlTimeElement>(".u-dt");
             var authorElement = doc.QuerySelector<IHtmlAnchorElement>(".username");
 
+            Title = titleElement?.TextContent;
+            Content = bodyElement?.InnerHtml;
+            Timestamp = DateTime.Parse(timestampElement?.DateTime ?? "1901-01-01");
+            Author = authorElement?.TextContent;
+            return bodyElement;
+        }
+
+        private static void FixImageSourceUrls(IDocument doc)
+        {
             foreach (var img in doc.QuerySelectorAll<IHtmlImageElement>("img"))
             {
                 // set image src element to full url by reassigning it to itself
                 // relative urls will have doc.BaseUrl added, absolute urls will be left unchanged
                 img.Source = img.Source;
             }
-
-            Title = titleElement?.TextContent;
-            Content = bodyElement?.InnerHtml;
-            Timestamp = DateTime.Parse(timestampElement?.DateTime ?? "1901-01-01");
-            Author = authorElement?.TextContent;
         }
 
-        public string AsHtml => $"<html><head><title>{Story.Title}</title></head>" +
-                                $"<body><h2>{Category.Name}: {Title}" +
-                                (Story.Author == Author ? "" : $" (by {Author})") +
-                                $"</h2>{Content}</body></html>\n\n";
+        private static void ReformatQuotes(IDocument doc)
+        {
+            foreach (var q in doc.QuerySelectorAll<IHtmlQuoteElement>("blockquote"))
+            {
+                if (q.QuerySelector<IHtmlDivElement>("div.bbCodeBlock-title") is {} t)
+                {
+                    var b = doc.CreateElement("b");
+                    b.InnerHtml = t.InnerHtml;
+                    t.Replace(b);
+                }
+
+                var c = q.QuerySelector<IHtmlDivElement>("div.bbCodeBlock-content");
+                var xc = q.QuerySelector<IHtmlDivElement>("div.bbCodeBlock-expandContent");
+                var p = doc.CreateElement("p");
+                p.InnerHtml = xc.InnerHtml;
+
+                c.Replace(p);
+                p.After(doc.CreateElement<IHtmlHrElement>());
+            }
+        }
+
+        private void InsertPostTitle(IDocument doc)
+        {
+            var te = doc.CreateElement<IHtmlTitleElement>();
+            te.Text = Title;
+            doc.Head.Append(te);
+
+            var header = doc.CreateElement("h2");
+            header.TextContent = $"{Category.Name}: {Title}" +
+                                 (Story.Author == Author ? "" : $" (by {Author})");
+            doc.Body.Prepend(header);
+        }
+
+        private static void TrimMetadata(IDocument doc, IHtmlDivElement bodyElement)
+        {
+            var tp = doc.Body.QuerySelector<IHtmlDivElement>(".threadmarkPreview");
+            tp.ReplaceWith(bodyElement);
+        }
     }
 }

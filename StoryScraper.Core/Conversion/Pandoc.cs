@@ -31,14 +31,15 @@ namespace StoryScraper.Core.Conversion
 
         private void PostToMarkdown(Post post, StreamWriter parentStdin)
         {
-            //Console.WriteLine($"[Pandoc] Post '{post.Title}' to markdown");
+            //var md = new StringBuilder();
             var mdPandoc = MakePandocProcess("--verbose -t markdown -f html");
 
             mdPandoc.OutputDataReceived += (s, e) =>
             {
-                if (!string.IsNullOrEmpty(e.Data))
+                if(e.Data != null)
                 {
                     (parentStdin ?? Console.Out).WriteLine(e.Data);
+                    //md.AppendLine(e.Data);
                 }
             };
             mdPandoc.BeginOutputReadLine();
@@ -48,6 +49,7 @@ namespace StoryScraper.Core.Conversion
             mdPandoc.StandardInput.Close();
             mdPandoc.WaitForExit();
             
+            //File.WriteAllText($"{post.Story.Title} - {post.PostId} {post.Title}.md".ToValidPath(), md.ToString());
             parentStdin?.WriteLine("\n");
         }
 
