@@ -61,24 +61,12 @@ namespace StoryScraper.Core
             Title = (titleElem.TextContent ?? "Unknown").Trim();
             var authorElem = doc.QuerySelector<IHtmlAnchorElement>(".username.u-concealed");
             Author = (authorElem.TextContent ?? "Unknown").Trim();
-            
-            var categories = doc.Links.OfType<IHtmlAnchorElement>()
-                .Where(l => l.Id?.Contains("threadmark-category") ?? false)
-                .Select(l => new Category(l.Id, l.Href, name: l.InnerHtml, site, this, config))
-                .ToList();
 
-            if (categories.Count == 0)
-            {
-                Console.WriteLine("No threadmarks found, trying threadmarks page instead");
-                // TODO: Parse the threadmarks page right
-                doc = await p.ParseDocumentAsync(storyPage + "/threadmarks");
-                doc.Location.Href = url.ToString();
-                
-                categories = doc.Links.OfType<IHtmlAnchorElement>()
-                    .Where(l => l.Id?.Contains("threadmark-category") ?? false)
-                    .Select(l => new Category(l.Id, l.Href, name: l.InnerHtml, site, this, config))
-                    .ToList();
-            }
+            var categories = doc.QuerySelectorAll<IHtmlAnchorElement>("a[data-categoryid]")
+                .Select(a => (name: a.Text, id: a.Attributes["data-categoryid"].Value, href: a.Href))
+                .Distinct()
+                .Select(a => new Category(a.id, a.href, name: a.name, site, this, config))
+                .ToList();
 
             foreach (var cat in categories)
             { 
