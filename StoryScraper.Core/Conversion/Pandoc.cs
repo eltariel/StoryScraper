@@ -55,7 +55,7 @@ namespace StoryScraper.Core.Conversion
         {
             Console.WriteLine($"Posts Markdown to EPUB");
 
-            var pandocArgs = $"--verbose --toc -o \"{story.Title.ToValidPath()}.epub\" -f markdown";
+            var pandocArgs = $"--verbose --shift-heading-level-by=-1 -o \"{story.Title.ToValidPath()}.epub\" -f markdown";
             var pandocProcess = MakePandocProcess(pandocArgs);
             
             pandocProcess.OutputDataReceived += (s, e) =>
@@ -79,8 +79,8 @@ namespace StoryScraper.Core.Conversion
         }
 
         private static string GetEpubMetadata(Story story) => "---\n" +
-                                                              $"title: {story.Title}\n" +
-                                                              $"author: {story.Author}\n" +
+                                                              $"title: |\n\t{story.Title}\n" +
+                                                              $"author: |\n\t{story.Author}\n" +
                                                               $"lang: en-us\n" +
                                                               "...\n\n";
 

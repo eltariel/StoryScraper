@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
+using AngleSharp;
 using AngleSharp.Dom;
 using AngleSharp.Html.Dom;
 using AngleSharp.Html.Parser;
@@ -52,10 +53,11 @@ namespace StoryScraper.Core
         private async Task<List<Category>> ParseStory(string storyPage)
         {
             var p = new HtmlParser();
-            var doc = await p.ParseDocumentAsync(storyPage);
-            doc.Location.Href = url.ToString();
 
-            var titleElem = doc.QuerySelector<IHtmlHeadingElement>("h1.threadmarkListingHeader-name");
+            var context = BrowsingContext.New(Configuration.Default);
+            var doc = await context.OpenAsync(res => res.Content(storyPage).Address(url));
+
+            var titleElem = doc.QuerySelector<IHtmlHeadingElement>("h1.p-title-value");
             Title = (titleElem.TextContent ?? "Unknown").Trim();
             var authorElem = doc.QuerySelector<IHtmlAnchorElement>(".username.u-concealed");
             Author = (authorElem.TextContent ?? "Unknown").Trim();
@@ -64,6 +66,19 @@ namespace StoryScraper.Core
                 .Where(l => l.Id?.Contains("threadmark-category") ?? false)
                 .Select(l => new Category(l.Id, l.Href, name: l.InnerHtml, site, this, config))
                 .ToList();
+
+            if (categories.Count == 0)
+            {
+                Console.WriteLine("No threadmarks found, trying threadmarks page instead");
+                // TODO: Parse the threadmarks page right
+                doc = await p.ParseDocumentAsync(storyPage + "/threadmarks");
+                doc.Location.Href = url.ToString();
+                
+                categories = doc.Links.OfType<IHtmlAnchorElement>()
+                    .Where(l => l.Id?.Contains("threadmark-category") ?? false)
+                    .Select(l => new Category(l.Id, l.Href, name: l.InnerHtml, site, this, config))
+                    .ToList();
+            }
 
             foreach (var cat in categories)
             { 

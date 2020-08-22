@@ -25,33 +25,45 @@ namespace StoryScraper.Core
             if (config == null) return;
 
             var siteFactory = new SiteFactory(config);
+            var pandoc = new Pandoc(config);
+            var kindlegen = new KindleGen(config);
+            
             foreach (var url in urls)
             {
-                Console.WriteLine($"Attempting to fetch story from {url}");
+                try
+                {
+                    Console.WriteLine($"Attempting to fetch story from {url}");
                 
-                var site = siteFactory.GetSiteFor(url);
-                var story = await site.GetStory(url);
+                    var site = siteFactory.GetSiteFor(url);
+                    var story = await site.GetStory(url);
 
-                Console.WriteLine($"Found {story.Categories.Count} categories:");
-                foreach (var cat in story.Categories)
-                {
-                    Console.WriteLine($"\t- {cat.Name} ({cat.PostCount} posts)");
+                    Console.WriteLine($"Found {story.Categories.Count} categories:");
+                    foreach (var cat in story.Categories)
+                    {
+                        Console.WriteLine($"\t- {cat.Name} ({cat.PostCount} posts)");
+                    }
+
+                    var interestingCategories = story
+                        .Categories
+                        .Where(c => !config.ExcludedCategories.Contains(c.Name))
+                        .ToList();
+
+                    foreach (var cat in interestingCategories)
+                    {
+                        await cat.GetPosts();
+                    }
+
+                    pandoc.ToEpub(story);
+
+                    if (!config.SkipMobi)
+                    {
+                        kindlegen.ToMobi(story);
+                    }
                 }
-
-                var interestingCategories = story
-                    .Categories
-                    .Where(c => !config.ExcludedCategories.Contains(c.Name))
-                    .ToList();
-
-                foreach (var cat in interestingCategories)
+                catch (Exception ex)
                 {
-                    await cat.GetPosts();
+                    Console.WriteLine($"Failed url: {ex}");
                 }
-
-                var pandoc = new Pandoc(config);
-                var kindlegen = new KindleGen(config);
-                pandoc.ToEpub(story);
-                kindlegen.ToMobi(story);
             }
         }
     }

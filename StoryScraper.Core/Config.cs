@@ -13,7 +13,8 @@ namespace StoryScraper.Core
             string cachePath,
             string pandocPath,
             string kindleGenPath,
-            bool useWsl)
+            bool useWsl,
+            bool skipMobi)
         {
             ExcludedCategories = excludedCategories;
             Urls = urls;
@@ -26,13 +27,15 @@ namespace StoryScraper.Core
             PandocPath = pandocPath ?? "pandoc";
             KindleGenPath = kindleGenPath ?? "kindlegen";
             UseWsl = useWsl;
-            
+            SkipMobi = skipMobi;
+
             Console.WriteLine("Options:");
             Console.WriteLine($"  Excluded Categories = {string.Join(',', ExcludedCategories)}");
             Console.WriteLine($"  Cache Path =          {Path.GetFullPath(CachePath)}");
             Console.WriteLine($"  Pandoc path =         {PandocPath}");
             Console.WriteLine($"  KindleGen path =      {KindleGenPath}");
             Console.WriteLine($"  Use WSL =             {UseWsl}");
+            Console.WriteLine($"  Skip .mobi creation = {SkipMobi}");
         }
 
         public List<string> ExcludedCategories { get; }
@@ -41,6 +44,7 @@ namespace StoryScraper.Core
         public string PandocPath { get; }
         public string KindleGenPath { get; }
         public bool UseWsl { get; }
+        public bool SkipMobi { get; }
 
         public static Config ParseArgs(string[] args, List<Uri> urls)
         {
@@ -49,6 +53,7 @@ namespace StoryScraper.Core
             string pandocPath = null;
             string kindlegenPath = null;
             var useWsl = false;
+            var skipMobi = false;
             var showHelp = false;
 
             var options = new OptionSet
@@ -63,6 +68,7 @@ namespace StoryScraper.Core
                 {"p|pandoc-path=", "Path to pandoc (html -> epub)", v => pandocPath = v},
                 {"k|kindlegen-path=", "Path to KindleGen (epub -> mobi)", v => kindlegenPath = v},
                 {"w|use-wsl", "Use pandoc in WSL rather than native.", v => useWsl = v != null},
+                {"skip-mobi", "Skip creating .mobi with kindlegen", v => skipMobi = v != null},
                 {"h|help", "Show help", v => showHelp = v != null}
             };
 
@@ -86,7 +92,7 @@ namespace StoryScraper.Core
                 return null;
             }
 
-            return new Config(urls, excludedCategories, cachePath, pandocPath, kindlegenPath, useWsl);
+            return new Config(urls, excludedCategories, cachePath, pandocPath, kindlegenPath, useWsl, skipMobi);
         }
     }
 }

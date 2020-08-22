@@ -2,8 +2,9 @@
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using AngleSharp;
+using AngleSharp.Dom;
 using AngleSharp.Html.Dom;
-using AngleSharp.Html.Parser;
 using Newtonsoft.Json.Linq;
 
 namespace StoryScraper.Core
@@ -60,13 +61,20 @@ namespace StoryScraper.Core
 
         private async Task ParseContent(string html)
         {
-            var parser = new HtmlParser();
-            var doc = await parser.ParseDocumentAsync(html);
+            var context = BrowsingContext.New(Configuration.Default);
+            var doc = await context.OpenAsync(res => res.Content(html).Address(Site.BaseUrl));
 
-            var titleElement = doc.QuerySelector(".threadmarkLabel") as IHtmlSpanElement;
-            var bodyElement = doc.QuerySelector(".bbWrapper") as IHtmlDivElement;
-            var timestampElement = doc.QuerySelector(".u-dt") as IHtmlTimeElement;
-            var authorElement = doc.QuerySelector(".username") as IHtmlAnchorElement;
+            var titleElement = doc.QuerySelector<IHtmlSpanElement>(".threadmarkLabel");
+            var bodyElement = doc.QuerySelector<IHtmlDivElement>(".bbWrapper");
+            var timestampElement = doc.QuerySelector<IHtmlTimeElement>(".u-dt");
+            var authorElement = doc.QuerySelector<IHtmlAnchorElement>(".username");
+
+            foreach (var img in doc.QuerySelectorAll<IHtmlImageElement>("img"))
+            {
+                // set image src element to full url by reassigning it to itself
+                // relative urls will have doc.BaseUrl added, absolute urls will be left unchanged
+                img.Source = img.Source;
+            }
 
             Title = titleElement?.TextContent;
             Content = bodyElement?.InnerHtml;
