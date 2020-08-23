@@ -126,7 +126,7 @@ namespace StoryScraper.Core
 				var spoilerTitle = spoiler.QuerySelector<IHtmlSpanElement>("span.bbCodeSpoiler-button-title");
 
 				var spoilerHeader = doc.CreateElement("b");
-				spoilerHeader.TextContent = "Spoiler: " + spoilerTitle.TextContent;
+				spoilerHeader.TextContent = "Spoiler: " + spoilerTitle?.TextContent ?? "";
 				var q = doc.CreateElement("blockquote");
 				q.Append(doc.CreateElement("hr"),
 						spoilerHeader,
