@@ -1,4 +1,5 @@
 ﻿using System.IO;
+using System.Linq;
 using System.Text.RegularExpressions;
 
 namespace StoryScraper.Core.Utils
@@ -7,8 +8,13 @@ namespace StoryScraper.Core.Utils
     {
         public static string ToValidPath(this string name)
         {
-            var invalidChars = Regex.Escape(new string(Path.GetInvalidFileNameChars()));
-            var invalidRegStr = string.Format(@"([{0}]*\.+$)|([{0}]+)", invalidChars);
+			var invalidChars = Path.GetInvalidFileNameChars()
+				.Concat(@":/\".ToCharArray()) // Windows exclusions when on linux, ugh.
+				.Distinct()
+				.ToArray();
+
+            var invalidCharsStr = Regex.Escape(new string(invalidChars));
+            var invalidRegStr = string.Format(@"([{0}]*\.+$)|([{0}]+)", invalidCharsStr);
 
             return Regex.Replace( name, invalidRegStr, "_" );
         }
