@@ -66,6 +66,7 @@ namespace StoryScraper.Core
             var bodyElement = GetProperties(doc);
             FixImageSourceUrls(doc);
             ReformatQuotes(doc);
+			ReformatSpoilers(doc);
             InsertPostTitle(doc);
             TrimMetadata(doc, bodyElement);
 
@@ -86,7 +87,7 @@ namespace StoryScraper.Core
             return bodyElement;
         }
 
-        private static void FixImageSourceUrls(IDocument doc)
+        private void FixImageSourceUrls(IDocument doc)
         {
             foreach (var img in doc.QuerySelectorAll<IHtmlImageElement>("img"))
             {
@@ -96,7 +97,7 @@ namespace StoryScraper.Core
             }
         }
 
-        private static void ReformatQuotes(IDocument doc)
+        private void ReformatQuotes(IDocument doc)
         {
             foreach (var q in doc.QuerySelectorAll<IHtmlQuoteElement>("blockquote"))
             {
@@ -117,6 +118,24 @@ namespace StoryScraper.Core
             }
         }
 
+		private void ReformatSpoilers(IDocument doc)
+		{
+			foreach (var spoiler in doc.QuerySelectorAll<IHtmlDivElement>("div.bbCodeSpoiler"))
+			{
+                var spoilerContent = spoiler.QuerySelector<IHtmlDivElement>("div.bbCodeBlock-content");
+				var spoilerTitle = spoiler.QuerySelector<IHtmlSpanElement>("span.bbCodeSpoiler-button-title");
+
+				var spoilerHeader = doc.CreateElement("b");
+				spoilerHeader.TextContent = "Spoiler: " + spoilerTitle.TextContent;
+				var q = doc.CreateElement("blockquote");
+				q.Append(doc.CreateElement("hr"),
+						spoilerHeader,
+						spoilerContent,
+						doc.CreateElement("hr"));
+				spoiler.Replace(q);
+			}
+		}
+
         private void InsertPostTitle(IDocument doc)
         {
             var te = doc.CreateElement<IHtmlTitleElement>();
@@ -129,7 +148,7 @@ namespace StoryScraper.Core
             doc.Body.Prepend(header);
         }
 
-        private static void TrimMetadata(IDocument doc, IHtmlDivElement bodyElement)
+        private void TrimMetadata(IDocument doc, IHtmlDivElement bodyElement)
         {
             var tp = doc.Body.QuerySelector<IHtmlDivElement>(".threadmarkPreview");
             tp.ReplaceWith(bodyElement);
