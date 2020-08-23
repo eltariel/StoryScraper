@@ -46,8 +46,9 @@ namespace StoryScraper.Core
         public bool UseWsl { get; }
         public bool SkipMobi { get; }
 
-        public static Config ParseArgs(string[] args, List<Uri> urls)
+        public static Config ParseArgs(string[] args)
         {
+			List<Uri> urls = null;
             string cachePath = null;
 			string urlFile = null;
             var excludedCategories = new List<string>();

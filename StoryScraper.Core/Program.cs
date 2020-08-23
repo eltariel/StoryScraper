@@ -14,14 +14,7 @@ namespace StoryScraper.Core
     {
         static async Task Main(string[] args)
         {
-            var urls = new List<Uri>
-            {
-                // new Uri("https://forums.sufficientvelocity.com/threads/mauling-snarks-worm.41471/"),
-                // new Uri("https://forums.spacebattles.com/threads/going-for-a-walk-worm-hellsing-ultimate-abridged.812348/"),
-                // new Uri("https://forums.sufficientvelocity.com/threads/taylor-varga-worm-luna-varga.32119/"),
-            };
-            
-            var config = Config.ParseArgs(args, urls);
+            var config = Config.ParseArgs(args);
             if (config == null) return;
 
             var siteFactory = new SiteFactory(config);
