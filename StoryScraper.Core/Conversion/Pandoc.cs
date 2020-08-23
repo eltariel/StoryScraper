@@ -62,7 +62,7 @@ namespace StoryScraper.Core.Conversion
             
             pandocProcess.OutputDataReceived += (s, e) =>
             {
-                if (!string.IsNullOrEmpty(e.Data))
+                if (e.Data != null)
                 {
                     Console.WriteLine(e.Data);
                 }
@@ -81,8 +81,8 @@ namespace StoryScraper.Core.Conversion
         }
 
         private static string GetEpubMetadata(Story story) => "---\n" +
-                                                              $"title: |\n\t{story.Title}\n" +
-                                                              $"author: |\n\t{story.Author}\n" +
+                                                              $"title: \"{story.Title}\"\n" +
+                                                              $"author: \"{story.Author}\"\n" +
                                                               $"lang: en-us\n" +
                                                               "...\n\n";
 
@@ -106,7 +106,7 @@ namespace StoryScraper.Core.Conversion
             var process = new Process {StartInfo = psi, EnableRaisingEvents = true};
             process.ErrorDataReceived += (s, e) => 
             {
-                if (!string.IsNullOrEmpty(e.Data))
+                if (e.Data != null)
                 {
                     Console.Out.WriteLine($"  [stderr] {e.Data}");
                 }
