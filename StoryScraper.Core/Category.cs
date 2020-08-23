@@ -90,7 +90,6 @@ namespace StoryScraper.Core
 
             foreach (var p in fetchedPosts)
             {
-                Console.WriteLine($"Found post: {p.Name} @ {p.Href}");
                 await p.FetchContent(csrfToken);
             }
 
@@ -107,7 +106,6 @@ namespace StoryScraper.Core
 
         private async Task<IEnumerable<Post>> ParseAdditionalPosts(string csrfToken, string fetchUrl)
         {
-            Console.WriteLine($"Fetch url: {fetchUrl}");
             var url = new Uri(Site.BaseUrl, fetchUrl);
             var form = Site.GetHtmlPostData(Story.BaseUrl, csrfToken);
 

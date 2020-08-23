@@ -31,6 +31,8 @@ namespace StoryScraper.Core
         public Story Story { get; }
         public Site Site { get; }
 
+		public bool FromCache { get; private set; } = false;
+
         public DateTime Timestamp { get; private set; }
         public string Author { get; private set; }
         public string Title { get; private set; }
@@ -39,15 +41,13 @@ namespace StoryScraper.Core
 
         public async Task FetchContent(string csrfToken)
         {
-            Console.WriteLine($"Fetching content for '{Name}'");
-
             var queryParams = Site.GetCommonParams(Story.BaseUrl, csrfToken);
             var queryString = string.Join("&", queryParams.Select(p => $"{p.Key}={p.Value}"));
             var url = new Uri(Site.BaseUrl, $"/posts/{PostId}/preview-threadmark?{queryString}");
 
             var jsonCacheFile = $"{Site.CachePath}/posts/json/post-{PostId}.json";
-            var readFromCache = File.Exists(jsonCacheFile);
-            var json = !readFromCache
+            FromCache = File.Exists(jsonCacheFile);
+            var json = !FromCache
                 ? await Site.GetAsync(url)
                 : await File.ReadAllTextAsync(jsonCacheFile);
             
@@ -55,8 +55,6 @@ namespace StoryScraper.Core
             await File.WriteAllTextAsync(jsonCacheFile, json);
 
             var html = (string)JObject.Parse(json)["html"]["content"];
-            await File.WriteAllTextAsync($"{Site.CachePath}/posts/post-raw-{PostId}.html", html);
-
             await ParseContent(html);
         }
 

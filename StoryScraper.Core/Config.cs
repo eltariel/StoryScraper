@@ -49,6 +49,7 @@ namespace StoryScraper.Core
         public static Config ParseArgs(string[] args, List<Uri> urls)
         {
             string cachePath = null;
+			string urlFile = null;
             var excludedCategories = new List<string>();
             string pandocPath = null;
             string kindlegenPath = null;
@@ -59,7 +60,7 @@ namespace StoryScraper.Core
             var options = new OptionSet
             {
                 {"c|cache-path=", "Location for cache", v => cachePath = v},
-                {"u|url=", "URL for story. Can be specified multiple times.", v => urls.Add(new Uri(v))},
+                {"u|url-file=", "File containing URLs to check, one per line. Can be combined with urls on the command line.", v => urlFile = v},
                 {
                     "x|exclude-category=",
                     "Category to exclude from the generated ebook. Can be specified multiple times. Defaults to 'Staff Post' and 'Media' if nothing specified.",
@@ -75,7 +76,7 @@ namespace StoryScraper.Core
             try
             {
                 var extra = options.Parse(args);
-                urls.AddRange(extra.Select(x => new Uri(x)));
+                urls = new List<Uri>(extra.Select(x => new Uri(x)));
             }
             catch (OptionException e)
             {
@@ -84,6 +85,24 @@ namespace StoryScraper.Core
                 Console.WriteLine($"Try '{args[0]} --help' for more information.");
                 return null;
             }
+			catch (Exception ex)
+			{
+				Console.WriteLine($"Something went wrong: {ex}");
+				return null;
+			}
+
+			try
+			{
+				if(urlFile != null)
+				{
+					urls.AddRange(File.ReadAllLines(urlFile).Select(u => new Uri(u)));
+				}
+			}
+			catch (Exception ex)
+			{
+				Console.WriteLine($"Can't read URL file: {ex}");
+				return null;
+			}
 
             if (showHelp)
             {

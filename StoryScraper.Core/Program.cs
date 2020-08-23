@@ -28,7 +28,7 @@ namespace StoryScraper.Core
             var pandoc = new Pandoc(config);
             var kindlegen = new KindleGen(config);
             
-            foreach (var url in urls)
+            foreach (var url in config.Urls)
             {
                 try
                 {

@@ -29,6 +29,40 @@ namespace StoryScraper.Core.Conversion
             PostsToEpub(posts, story);
         }
 
+        private void PostsToEpub(IEnumerable<Post> posts, Story story)
+        {
+            Console.WriteLine($"Posts Markdown to EPUB");
+
+			var epubFile = $"{story.Title.ToValidPath()}.epub";
+			if(File.Exists(epubFile) && posts.All(p => p.FromCache))
+			{
+				Console.WriteLine($"{epubFile} exists, no new posts. Skipping ebook generation.");
+				return;
+			}
+
+            var pandocArgs = $"--verbose --shift-heading-level-by=-1 -o \"{epubFile}\" -f markdown";
+            var pandocProcess = MakePandocProcess(pandocArgs);
+            
+            pandocProcess.OutputDataReceived += (s, e) =>
+            {
+                if (e.Data != null)
+                {
+                    Console.WriteLine(e.Data);
+                }
+            };
+            pandocProcess.BeginOutputReadLine();
+
+            pandocProcess.StandardInput.WriteLine(GetEpubMetadata(story));
+            foreach (var post in posts)
+            {
+                PostToMarkdown(post, pandocProcess.StandardInput);
+            }
+
+            pandocProcess.StandardInput.Close();
+            pandocProcess.WaitForExit();
+            Console.WriteLine($"Pandoc exit code: {pandocProcess.ExitCode}");
+        }
+
         private void PostToMarkdown(Post post, StreamWriter parentStdin)
         {
             //var md = new StringBuilder();
@@ -51,33 +85,6 @@ namespace StoryScraper.Core.Conversion
             
             //File.WriteAllText($"{post.Story.Title} - {post.PostId} {post.Title}.md".ToValidPath(), md.ToString());
             parentStdin?.WriteLine("\n");
-        }
-
-        private void PostsToEpub(IEnumerable<Post> posts, Story story)
-        {
-            Console.WriteLine($"Posts Markdown to EPUB");
-
-            var pandocArgs = $"--verbose --shift-heading-level-by=-1 -o \"{story.Title.ToValidPath()}.epub\" -f markdown";
-            var pandocProcess = MakePandocProcess(pandocArgs);
-            
-            pandocProcess.OutputDataReceived += (s, e) =>
-            {
-                if (e.Data != null)
-                {
-                    Console.WriteLine(e.Data);
-                }
-            };
-            pandocProcess.BeginOutputReadLine();
-
-            pandocProcess.StandardInput.WriteLine(GetEpubMetadata(story));
-            foreach (var post in posts)
-            {
-                PostToMarkdown(post, pandocProcess.StandardInput);
-            }
-
-            pandocProcess.StandardInput.Close();
-            pandocProcess.WaitForExit();
-            Console.WriteLine($"Pandoc exit code: {pandocProcess.ExitCode}");
         }
 
         private static string GetEpubMetadata(Story story) => "---\n" +
