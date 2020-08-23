@@ -9,7 +9,7 @@ namespace StoryScraper.Core.Utils
         public static string ToValidPath(this string name)
         {
 			var invalidChars = Path.GetInvalidFileNameChars()
-				.Concat(@":/\".ToCharArray()) // Windows exclusions when on linux, ugh.
+				.Concat(@":/\?".ToCharArray()) // Windows exclusions when on linux, ugh.
 				.Distinct()
 				.ToArray();
 
