@@ -8,10 +8,10 @@ namespace StoryScraper.Core.Utils
     {
         public static string ToValidPath(this string name)
         {
-			var invalidChars = Path.GetInvalidFileNameChars()
-				.Concat(@":/\?".ToCharArray()) // Windows exclusions when on linux, ugh.
-				.Distinct()
-				.ToArray();
+            var invalidChars = Path.GetInvalidFileNameChars()
+                .Concat(@":/\?".ToCharArray()) // Windows exclusions when on linux, ugh.
+                .Distinct()
+                .ToArray();
 
             var invalidCharsStr = Regex.Escape(new string(invalidChars));
             var invalidRegStr = string.Format(@"([{0}]*\.+$)|([{0}]+)", invalidCharsStr);

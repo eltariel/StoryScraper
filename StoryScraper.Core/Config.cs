@@ -48,9 +48,9 @@ namespace StoryScraper.Core
 
         public static Config ParseArgs(string[] args)
         {
-			List<Uri> urls = null;
+            List<Uri> urls = null;
             string cachePath = null;
-			string urlFile = null;
+            string urlFile = null;
             var excludedCategories = new List<string>();
             string pandocPath = null;
             string kindlegenPath = null;
@@ -86,24 +86,24 @@ namespace StoryScraper.Core
                 Console.WriteLine($"Try '{args[0]} --help' for more information.");
                 return null;
             }
-			catch (Exception ex)
-			{
-				Console.WriteLine($"Something went wrong: {ex}");
-				return null;
-			}
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Something went wrong: {ex}");
+                return null;
+            }
 
-			try
-			{
-				if(urlFile != null)
-				{
-					urls.AddRange(File.ReadAllLines(urlFile).Select(u => new Uri(u)));
-				}
-			}
-			catch (Exception ex)
-			{
-				Console.WriteLine($"Can't read URL file: {ex}");
-				return null;
-			}
+            try
+            {
+                if(urlFile != null)
+                {
+                    urls.AddRange(File.ReadAllLines(urlFile).Select(u => new Uri(u)));
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Can't read URL file: {ex}");
+                return null;
+            }
 
             if (showHelp)
             {

@@ -31,7 +31,7 @@ namespace StoryScraper.Core
         public Story Story { get; }
         public Site Site { get; }
 
-		public bool FromCache { get; private set; } = false;
+        public bool FromCache { get; private set; } = false;
 
         public DateTime Timestamp { get; private set; }
         public string Author { get; private set; }
@@ -66,7 +66,7 @@ namespace StoryScraper.Core
             var bodyElement = GetProperties(doc);
             FixImageSourceUrls(doc);
             ReformatQuotes(doc);
-			ReformatSpoilers(doc);
+            ReformatSpoilers(doc);
             InsertPostTitle(doc);
             TrimMetadata(doc, bodyElement);
 
@@ -118,23 +118,23 @@ namespace StoryScraper.Core
             }
         }
 
-		private void ReformatSpoilers(IDocument doc)
-		{
-			foreach (var spoiler in doc.QuerySelectorAll<IHtmlDivElement>("div.bbCodeSpoiler"))
-			{
+        private void ReformatSpoilers(IDocument doc)
+        {
+            foreach (var spoiler in doc.QuerySelectorAll<IHtmlDivElement>("div.bbCodeSpoiler"))
+            {
                 var spoilerContent = spoiler.QuerySelector<IHtmlDivElement>("div.bbCodeBlock-content");
-				var spoilerTitle = spoiler.QuerySelector<IHtmlSpanElement>("span.bbCodeSpoiler-button-title");
+                var spoilerTitle = spoiler.QuerySelector<IHtmlSpanElement>("span.bbCodeSpoiler-button-title");
 
-				var spoilerHeader = doc.CreateElement("b");
-				spoilerHeader.TextContent = "Spoiler: " + spoilerTitle?.TextContent ?? "";
-				var q = doc.CreateElement("blockquote");
-				q.Append(doc.CreateElement("hr"),
-						spoilerHeader,
-						spoilerContent,
-						doc.CreateElement("hr"));
-				spoiler.Replace(q);
-			}
-		}
+                var spoilerHeader = doc.CreateElement("b");
+                spoilerHeader.TextContent = "Spoiler: " + spoilerTitle?.TextContent ?? "";
+                var q = doc.CreateElement("blockquote");
+                q.Append(doc.CreateElement("hr"),
+                        spoilerHeader,
+                        spoilerContent,
+                        doc.CreateElement("hr"));
+                spoiler.Replace(q);
+            }
+        }
 
         private void InsertPostTitle(IDocument doc)
         {

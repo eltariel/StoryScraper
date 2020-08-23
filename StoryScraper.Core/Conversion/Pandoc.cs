@@ -33,12 +33,12 @@ namespace StoryScraper.Core.Conversion
         {
             Console.WriteLine($"Posts Markdown to EPUB");
 
-			var epubFile = $"{story.Title.ToValidPath()}.epub";
-			if(File.Exists(epubFile) && posts.All(p => p.FromCache))
-			{
-				Console.WriteLine($"{epubFile} exists, no new posts. Skipping ebook generation.");
-				return;
-			}
+            var epubFile = $"{story.Title.ToValidPath()}.epub";
+            if(File.Exists(epubFile) && posts.All(p => p.FromCache))
+            {
+                Console.WriteLine($"{epubFile} exists, no new posts. Skipping ebook generation.");
+                return;
+            }
 
             var pandocArgs = $"--verbose --shift-heading-level-by=-1 -o \"{epubFile}\" -f markdown";
             var pandocProcess = MakePandocProcess(pandocArgs);
