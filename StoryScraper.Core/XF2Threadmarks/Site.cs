@@ -4,11 +4,8 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
-using System.Runtime;
-using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using AngleSharp;
-using AngleSharp.Io.Cookie;
 
 namespace StoryScraper.Core.XF2Threadmarks
 {

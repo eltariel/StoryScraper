@@ -3,17 +3,22 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Mono.Options;
+using NLog;
+using NLog.Targets;
 
 namespace StoryScraper.Core
 {
     public class Config
     {
-        public Config(List<Uri> urls,
+        private static readonly Logger log = LogManager.GetCurrentClassLogger();
+        
+        private Config(List<Uri> urls,
             List<string> excludedCategories,
             string cachePath,
             string outDir,
             string pandocPath,
             string kindleGenPath,
+            int verbosity,
             bool useWsl,
             bool skipMobi)
         {
@@ -27,18 +32,34 @@ namespace StoryScraper.Core
             CachePath = cachePath ?? Path.Combine(Environment.CurrentDirectory, "cache");
             PandocPath = pandocPath ?? "pandoc";
             KindleGenPath = kindleGenPath ?? "kindlegen";
+            Verbosity = verbosity;
+            LogLevel = Verbosity switch
+            {
+                0 => LogLevel.Info,
+                1 => LogLevel.Debug,
+                _ => LogLevel.Trace
+            };
             UseWsl = useWsl;
             SkipMobi = skipMobi;
             OutDir = outDir ?? Environment.CurrentDirectory;
+            
+            // On start of your program
+            UpdateNlogConfig();
+            LogManager.ConfigurationReloaded += (sender, e) =>
+            {
+                //Re apply if config reloaded
+                UpdateNlogConfig();
+            };
 
-            Console.WriteLine("Options:");
-            Console.WriteLine($"  Excluded Categories = {string.Join(',', ExcludedCategories)}");
-            Console.WriteLine($"  Output Path =         {Path.GetFullPath(OutDir)}");
-            Console.WriteLine($"  Cache Path =          {Path.GetFullPath(CachePath)}");
-            Console.WriteLine($"  Pandoc path =         {PandocPath}");
-            Console.WriteLine($"  KindleGen path =      {KindleGenPath}");
-            Console.WriteLine($"  Use WSL =             {UseWsl}");
-            Console.WriteLine($"  Skip .mobi creation = {SkipMobi}");
+            log.Debug("Options:");
+            log.Debug($"  Excluded Categories = {string.Join(',', ExcludedCategories)}");
+            log.Debug($"  Output Path =         {Path.GetFullPath(OutDir)}");
+            log.Debug($"  Cache Path =          {Path.GetFullPath(CachePath)}");
+            log.Debug($"  Pandoc path =         {PandocPath}");
+            log.Debug($"  KindleGen path =      {KindleGenPath}");
+            log.Debug($"  Use WSL =             {UseWsl}");
+            log.Debug($"  Verbosity           = {LogLevel} ({Verbosity})");
+            log.Debug($"  Skip .mobi creation = {SkipMobi}");
         }
 
         public List<string> ExcludedCategories { get; }
@@ -48,11 +69,25 @@ namespace StoryScraper.Core
         public string KindleGenPath { get; }
         public bool UseWsl { get; }
         public bool SkipMobi { get; }
+        public int Verbosity { get; }
+        public LogLevel LogLevel { get; }
         public string OutDir { get; }
+
+        private void UpdateNlogConfig()
+        {
+            var cfg = LogManager.Configuration;
+            var consoleRules = cfg.LoggingRules
+                .Where(r => r.Targets.Any(t => t is ConsoleTarget || t is ColoredConsoleTarget));
+            foreach (var rule in consoleRules)
+            {
+                rule.SetLoggingLevels(LogLevel, LogLevel.Fatal);
+            }
+            LogManager.Configuration = cfg;
+        }
 
         public static Config ParseArgs(string[] args)
         {
-            List<Uri> urls = null;
+            List<Uri> urls;
             string cachePath = null;
             string urlFile = null;
             string outDir = null;
@@ -60,6 +95,7 @@ namespace StoryScraper.Core
             string pandocPath = null;
             string kindlegenPath = null;
             var useWsl = false;
+            var verbosity = 0;
             var skipMobi = false;
             var showHelp = false;
 
@@ -76,6 +112,7 @@ namespace StoryScraper.Core
                 {"p|pandoc-path=", "Path to pandoc (html -> epub)", v => pandocPath = v},
                 {"k|kindlegen-path=", "Path to KindleGen (epub -> mobi)", v => kindlegenPath = v},
                 {"w|use-wsl", "Use pandoc in WSL rather than native.", v => useWsl = v != null},
+                {"v|verbose", "Increase Verbosity.", v => { if (v != null) ++verbosity; }},
                 {"skip-mobi", "Skip creating .mobi with kindlegen", v => skipMobi = v != null},
                 {"h|help", "Show help", v => showHelp = v != null}
             };
@@ -118,7 +155,8 @@ namespace StoryScraper.Core
                 return null;
             }
 
-            return new Config(urls, excludedCategories, cachePath, outDir, pandocPath, kindlegenPath, useWsl, skipMobi);
+            return new Config(urls, excludedCategories, cachePath, outDir, pandocPath, kindlegenPath, verbosity, useWsl,
+                skipMobi);
         }
     }
 }

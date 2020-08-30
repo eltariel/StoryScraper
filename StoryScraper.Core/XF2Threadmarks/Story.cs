@@ -2,14 +2,15 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Net.Http;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using AngleSharp;
 using AngleSharp.Dom;
 using AngleSharp.Html.Dom;
-using AngleSharp.Io.Dom;
 using Newtonsoft.Json;
+using NLog;
 using StoryScraper.Core.Utils;
 
 namespace StoryScraper.Core.XF2Threadmarks
@@ -24,6 +25,8 @@ namespace StoryScraper.Core.XF2Threadmarks
             ReferenceLoopHandling = ReferenceLoopHandling.Ignore,
             Formatting = Formatting.Indented
         });
+
+        private static readonly Logger log = LogManager.GetCurrentClassLogger();
 
         public Story(Uri url, Site site, HttpClient client, Config config)
         {
@@ -112,29 +115,29 @@ namespace StoryScraper.Core.XF2Threadmarks
                 var rss = Xf2Categories.First().RssLink;
                 var req = new HttpRequestMessage(HttpMethod.Head, rss);
                 var head = await client.SendAsync(req, HttpCompletionOption.ResponseHeadersRead);
-                Console.WriteLine($"Getting headers for [{rss}]: response status = {head.StatusCode} ({(int)head.StatusCode})");
-                Console.WriteLine($"Last Update for [{rss}]: {head.Content.Headers.LastModified}");
-                
-                Console.WriteLine($"Last cache date = {LastUpdate}, last modified date = {head.Content.Headers.LastModified}.");
-                if (LastUpdate < head.Content.Headers.LastModified)
+                log.Trace($"Getting headers for [{rss}]: response status = {head.StatusCode} ({(int)head.StatusCode})");
+                log.Trace($"Last Update for [{rss}]: {head.Content.Headers.LastModified}");
+                log.Debug($"Last cache date = {LastUpdate}, last modified date = {head.Content.Headers.LastModified}.");
+                if (head.StatusCode != HttpStatusCode.NotModified ||
+                    LastUpdate < head.Content.Headers.LastModified)
                 {
-                    Console.WriteLine("New posts, re-fetch categories");
+                    log.Trace("New posts, re-fetch categories");
                     return false; // TODO: Don't just invalidate the whole cache here...
                 }
                 else
                 {
-                    Console.WriteLine("No new posts.");
+                    log.Trace("No new posts.");
                 }
                 
                 return true;
             }
             catch (FileNotFoundException)
             {
-                Console.WriteLine("Cache not found.");
+                log.Debug("Cache not found.");
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Exception loading story cache: {ex}");
+                log.Debug(ex, $"Exception loading story cache: {ex}");
             }
             
             Console.WriteLine("Attempting to load from URL");
@@ -176,7 +179,7 @@ namespace StoryScraper.Core.XF2Threadmarks
             using var sw = new StreamWriter(MetadataCachePath);
             var jtw = new JsonTextWriter(sw);
             jsonSerializer.Serialize(jtw, this);
-            Console.WriteLine($"Cache written to '{MetadataCachePath}'");
+            log.Trace($"Cache written to '{MetadataCachePath}'");
         }
 
         private string MetadataCachePath =>

@@ -4,6 +4,7 @@ using System.Net;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
+using NLog;
 
 namespace StoryScraper.Core
 {
@@ -12,6 +13,8 @@ namespace StoryScraper.Core
         private const int MaxRetries = 15;
         private const int BaseDelay = 100;    // first delay will be BaseDelay * 2
 
+        private static readonly Logger log = LogManager.GetCurrentClassLogger();
+        
         public RateLimitHandler(HttpMessageHandler innerHandler)
             : base(innerHandler)
         {
@@ -32,7 +35,7 @@ namespace StoryScraper.Core
                     return response;
                 }
 
-                Console.WriteLine($"Rate limited, waiting {delay.TotalSeconds}s");
+                log.Trace($"Rate limited, waiting {delay.TotalSeconds}s");
                 await Task.Delay(delay, cancellationToken);
             }
 
