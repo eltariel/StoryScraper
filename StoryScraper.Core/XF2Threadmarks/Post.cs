@@ -5,63 +5,98 @@ using System.Threading.Tasks;
 using AngleSharp;
 using AngleSharp.Dom;
 using AngleSharp.Html.Dom;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
-namespace StoryScraper.Core
+namespace StoryScraper.Core.XF2Threadmarks
 {
-    public class Post
+    public class Post : IPost
     {
         private readonly Config config;
 
-        public Post(string href, string name, Category category, Story story, Site site, Config config)
+        public Post(string url, string name, string author, DateTime timestamp, Category category, Config config)
         {
             this.config = config;
-            Href = href;
+            Xf2Category = category;
+            Url = url;
             Name = name;
-            Category = category;
-            Story = story;
-            Site = site;
-            PostId = Href.Substring(Href.LastIndexOf("post-", StringComparison.InvariantCulture) + 5);
+            Author = author;
+            Timestamp = timestamp;
+            PostId = url.Substring(url.LastIndexOf("post-", StringComparison.InvariantCulture) + 5);
         }
 
-        public string Href { get; }
         public string PostId { get; }
-        public string Name { get; }
-        public Category Category { get; }
-        public Story Story { get; }
-        public Site Site { get; }
-
-        public bool FromCache { get; private set; } = false;
-
-        public DateTime Timestamp { get; private set; }
+        public string Name { get; set; }
         public string Author { get; private set; }
-        public string Title { get; private set; }
+        public DateTime Timestamp { get; private set; }
+        public string Url { get; }
+
+        [JsonIgnore]
+        public Site Xf2Site => Xf2Story.Xf2Site;
+
+        [JsonIgnore]
+        public Story Xf2Story => Xf2Category.Xf2Story;
+        
+        [JsonIgnore]
+        public Category Xf2Category { get; set; }
+
+        [JsonIgnore]
+        public ICategory Category => Xf2Category;
+        
+        [JsonIgnore]
+        public IStory Story => Xf2Story;
+        
+        [JsonIgnore]
+        public BaseSite Site => Xf2Site;
+
+        [JsonIgnore]
+        public bool FromCache { get; private set; } = false;
+        
+        [JsonIgnore]
         public string Content { get; private set; }
+        
+        [JsonIgnore]
         public string AsHtml { get; private set; }
 
         public async Task FetchContent(string csrfToken)
         {
-            var queryParams = Site.GetCommonParams(Story.BaseUrl, csrfToken);
-            var queryString = string.Join("&", queryParams.Select(p => $"{p.Key}={p.Value}"));
-            var url = new Uri(Site.BaseUrl, $"/posts/{PostId}/preview-threadmark?{queryString}");
+            try
+            {
+                AsHtml = await File.ReadAllTextAsync(HtmlCacheFile);
+                FromCache = true;
+                return;
+            }
+            catch (Exception)
+            {
+                FromCache = false;
+            }
 
-            var jsonCacheFile = $"{Site.CachePath}/posts/json/post-{PostId}.json";
-            FromCache = File.Exists(jsonCacheFile);
-            var json = !FromCache
-                ? await Site.GetAsync(url)
-                : await File.ReadAllTextAsync(jsonCacheFile);
+            var directUrl = GetPostPreviewUrl(csrfToken);
+            var json = await Site.GetAsync(directUrl);
+
+            Directory.CreateDirectory(Path.GetDirectoryName(HtmlCacheFile));
+            await File.WriteAllTextAsync(JsonCacheFile, json);
             
-            Directory.CreateDirectory($"{Site.CachePath}/posts/json");
-            await File.WriteAllTextAsync(jsonCacheFile, json);
-
-            var html = (string)JObject.Parse(json)["html"]["content"];
-            await ParseContent(html);
+            if ((string)JObject.Parse(json)["html"]?["content"] is {} html)
+            {
+                await ParseContent(html);
+                await File.WriteAllTextAsync(HtmlCacheFile, AsHtml);
+            }
         }
+
+        private Uri GetPostPreviewUrl(string csrfToken)
+        {
+            var queryParams = Xf2Site.GetCommonParams(Story.BaseUrl, csrfToken);
+            var queryString = string.Join("&", queryParams.Select(p => $"{p.Key}={p.Value}"));
+            return new Uri(Site.BaseUrl, $"/posts/{PostId}/preview-threadmark?{queryString}");
+        }
+
+        private string JsonCacheFile => $"{Site.CachePath}/posts/json/post-{PostId}.json";
+        private string HtmlCacheFile => $"{Site.CachePath}/posts/json/post-{PostId}.html";
 
         private async Task ParseContent(string html)
         {
-            var context = BrowsingContext.New(Configuration.Default);
-            var doc = await context.OpenAsync(res => res.Content(html).Address(Site.BaseUrl));
+            var doc = await Xf2Story.Context.OpenAsync(res => res.Content(html).Address(Site.BaseUrl));
 
             var bodyElement = GetProperties(doc);
             FixImageSourceUrls(doc);
@@ -80,7 +115,7 @@ namespace StoryScraper.Core
             var timestampElement = doc.QuerySelector<IHtmlTimeElement>(".u-dt");
             var authorElement = doc.QuerySelector<IHtmlAnchorElement>(".username");
 
-            Title = titleElement?.TextContent;
+            Name = titleElement?.TextContent;
             Content = bodyElement?.InnerHtml;
             Timestamp = DateTime.Parse(timestampElement?.DateTime ?? "1901-01-01");
             Author = authorElement?.TextContent;
@@ -129,9 +164,9 @@ namespace StoryScraper.Core
                 spoilerHeader.TextContent = "Spoiler: " + spoilerTitle?.TextContent ?? "";
                 var q = doc.CreateElement("blockquote");
                 q.Append(doc.CreateElement("hr"),
-                        spoilerHeader,
-                        spoilerContent,
-                        doc.CreateElement("hr"));
+                    spoilerHeader,
+                    spoilerContent,
+                    doc.CreateElement("hr"));
                 spoiler.Replace(q);
             }
         }
@@ -139,11 +174,11 @@ namespace StoryScraper.Core
         private void InsertPostTitle(IDocument doc)
         {
             var te = doc.CreateElement<IHtmlTitleElement>();
-            te.Text = Title;
+            te.Text = Name;
             doc.Head.Append(te);
 
             var header = doc.CreateElement("h2");
-            header.TextContent = $"{Category.Name}: {Title}" +
+            header.TextContent = $"{Category.Name}: {Name}" +
                                  (Story.Author == Author ? "" : $" (by {Author})");
             doc.Body.Prepend(header);
         }

@@ -11,6 +11,7 @@ namespace StoryScraper.Core
         public Config(List<Uri> urls,
             List<string> excludedCategories,
             string cachePath,
+            string outDir,
             string pandocPath,
             string kindleGenPath,
             bool useWsl,
@@ -23,14 +24,16 @@ namespace StoryScraper.Core
                 excludedCategories.AddRange(new [] {"Staff Post", "Media"});
             }
             
-            CachePath = cachePath ?? "cache";
+            CachePath = cachePath ?? Path.Combine(Environment.CurrentDirectory, "cache");
             PandocPath = pandocPath ?? "pandoc";
             KindleGenPath = kindleGenPath ?? "kindlegen";
             UseWsl = useWsl;
             SkipMobi = skipMobi;
+            OutDir = outDir ?? Environment.CurrentDirectory;
 
             Console.WriteLine("Options:");
             Console.WriteLine($"  Excluded Categories = {string.Join(',', ExcludedCategories)}");
+            Console.WriteLine($"  Output Path =         {Path.GetFullPath(OutDir)}");
             Console.WriteLine($"  Cache Path =          {Path.GetFullPath(CachePath)}");
             Console.WriteLine($"  Pandoc path =         {PandocPath}");
             Console.WriteLine($"  KindleGen path =      {KindleGenPath}");
@@ -45,12 +48,14 @@ namespace StoryScraper.Core
         public string KindleGenPath { get; }
         public bool UseWsl { get; }
         public bool SkipMobi { get; }
+        public string OutDir { get; }
 
         public static Config ParseArgs(string[] args)
         {
             List<Uri> urls = null;
             string cachePath = null;
             string urlFile = null;
+            string outDir = null;
             var excludedCategories = new List<string>();
             string pandocPath = null;
             string kindlegenPath = null;
@@ -67,6 +72,7 @@ namespace StoryScraper.Core
                     "Category to exclude from the generated ebook. Can be specified multiple times. Defaults to 'Staff Post' and 'Media' if nothing specified.",
                     v => excludedCategories.Add(v)
                 },
+                {"o|out-dir=", "epub output path", v => outDir = v},
                 {"p|pandoc-path=", "Path to pandoc (html -> epub)", v => pandocPath = v},
                 {"k|kindlegen-path=", "Path to KindleGen (epub -> mobi)", v => kindlegenPath = v},
                 {"w|use-wsl", "Use pandoc in WSL rather than native.", v => useWsl = v != null},
@@ -112,7 +118,7 @@ namespace StoryScraper.Core
                 return null;
             }
 
-            return new Config(urls, excludedCategories, cachePath, pandocPath, kindlegenPath, useWsl, skipMobi);
+            return new Config(urls, excludedCategories, cachePath, outDir, pandocPath, kindlegenPath, useWsl, skipMobi);
         }
     }
 }

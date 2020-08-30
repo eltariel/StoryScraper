@@ -17,30 +17,26 @@ namespace StoryScraper.Core.Conversion
             this.config = config;
         }
         
-        public void ToEpub(Story story)
+        public void ToEpub(IStory story)
         {
             var posts = story
                 .Categories
-                .Where(c => !config.ExcludedCategories.Contains(c.Name))
                 .SelectMany(p => p.Posts)
                 .OrderBy(p => p.Timestamp)
                 .ToList();
 
-            PostsToEpub(posts, story);
-        }
+            Console.WriteLine("Posts Markdown to EPUB");
 
-        private void PostsToEpub(IEnumerable<Post> posts, Story story)
-        {
-            Console.WriteLine($"Posts Markdown to EPUB");
-
-            var epubFile = $"{story.Title.ToValidPath()}.epub";
-            if(File.Exists(epubFile) && posts.All(p => p.FromCache))
+            var epubFile = Path.Combine(config.OutDir, $"{story.Title.ToValidPath()}.epub");
+            if(File.Exists(epubFile) &&
+               File.GetLastWriteTime(epubFile) >= story.LastUpdate &&
+               posts.All(p => p.FromCache))
             {
                 Console.WriteLine($"{epubFile} exists, no new posts. Skipping ebook generation.");
                 return;
             }
 
-            var pandocArgs = $"--verbose --shift-heading-level-by=-1 -o \"{epubFile}\" -f markdown";
+            var pandocArgs = $"--verbose --shift-heading-level-by=-1 -o \"{epubFile}\" --epub-cover-image=\"{story.CachedImage}\" -f markdown";
             var pandocProcess = MakePandocProcess(pandocArgs);
             
             pandocProcess.OutputDataReceived += (s, e) =>
@@ -52,8 +48,10 @@ namespace StoryScraper.Core.Conversion
             };
             pandocProcess.BeginOutputReadLine();
 
-            pandocProcess.StandardInput.WriteLine(GetEpubMetadata(story));
-            foreach (var post in posts)
+            var meta = GetEpubMetadata(story);
+            Console.WriteLine($"epub metadata: {meta}");
+            pandocProcess.StandardInput.WriteLine(meta);
+            foreach (var post in (IEnumerable<IPost>) posts)
             {
                 PostToMarkdown(post, pandocProcess.StandardInput);
             }
@@ -63,7 +61,7 @@ namespace StoryScraper.Core.Conversion
             Console.WriteLine($"Pandoc exit code: {pandocProcess.ExitCode}");
         }
 
-        private void PostToMarkdown(Post post, StreamWriter parentStdin)
+        private void PostToMarkdown(IPost post, StreamWriter parentStdin)
         {
             //var md = new StringBuilder();
             var mdPandoc = MakePandocProcess("--verbose -t markdown -f html");
@@ -87,11 +85,14 @@ namespace StoryScraper.Core.Conversion
             parentStdin?.WriteLine("\n");
         }
 
-        private static string GetEpubMetadata(Story story) => "---\n" +
-                                                              $"title: \"{story.Title}\"\n" +
-                                                              $"author: \"{story.Author}\"\n" +
-                                                              $"lang: en-us\n" +
-                                                              "...\n\n";
+        private static string GetEpubMetadata(IStory story) => "---\n" +
+                                                               $"title: \"{story.Title}\"\n" +
+                                                               $"author: \"{story.Author}\"\n" +
+                                                               //(!string.IsNullOrWhiteSpace(story.CachedImage)
+                                                               //    ? $"cover-image: \"{story.CachedImage.Replace("\\", "/")}\"\n"
+                                                               //    : "") +
+                                                               $"lang: en-us\n" +
+                                                               "...\n\n";
 
         private Process MakePandocProcess(string args)
         {

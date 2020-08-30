@@ -1,10 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Data.Common;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using AngleSharp.Common;
 using Mono.Options;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Converters;
 using StoryScraper.Core.Conversion;
 using StoryScraper.Core.Utils;
 
@@ -35,16 +38,11 @@ namespace StoryScraper.Core
                     {
                         Console.WriteLine($"\t- {cat.Name} ({cat.PostCount} posts)");
                     }
-
-                    var interestingCategories = story
-                        .Categories
-                        .Where(c => !config.ExcludedCategories.Contains(c.Name))
-                        .ToList();
-
-                    foreach (var cat in interestingCategories)
-                    {
-                        await cat.GetPosts();
-                    }
+                    //
+                    // foreach (var cat in story.Categories)
+                    // {
+                    //     await cat.GetPosts();
+                    // }
 
                     pandoc.ToEpub(story);
 

@@ -17,8 +17,6 @@ namespace StoryScraper.Core
         {
         }
 
-        public bool HitRateLimit { get; private set; } = false;
-
         protected override async Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request,
             CancellationToken cancellationToken)
@@ -31,13 +29,11 @@ namespace StoryScraper.Core
                 response = await base.SendAsync(request, cancellationToken);
                 if (response.StatusCode != HttpStatusCode.TooManyRequests)
                 {
-                    HitRateLimit = false;
                     return response;
                 }
 
                 Console.WriteLine($"Rate limited, waiting {delay.TotalSeconds}s");
                 await Task.Delay(delay, cancellationToken);
-                HitRateLimit = true;
             }
 
             return response;

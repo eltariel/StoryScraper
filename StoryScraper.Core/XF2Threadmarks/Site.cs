@@ -1,40 +1,45 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Runtime;
+using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
-using StoryScraper.Core.Utils;
+using AngleSharp;
+using AngleSharp.Io.Cookie;
 
-namespace StoryScraper.Core
+namespace StoryScraper.Core.XF2Threadmarks
 {
-    public class Site
+    public abstract class Site : BaseSite
     {
-        private readonly Config config;
         private static readonly CookieContainer cookieContainer = new CookieContainer();
         private static readonly HttpMessageHandler clientHandler = new RateLimitHandler(
             new HttpClientHandler { CookieContainer = cookieContainer });
         private static readonly HttpClient client = new HttpClient(clientHandler);
 
-        public Site(string name, Uri baseUrl, Config config)
+        public IConfiguration AngleSharpConfig { get; }
+
+        protected Site(string name, Uri baseUrl, IDictionary<string, int> categoryIds, Config config) : base(name, baseUrl, config)
         {
-            this.config = config;
-            Name = name;
-            BaseUrl = baseUrl;
+            CategoryIds = categoryIds;
+            
+            AngleSharpConfig = Configuration.Default
+                .WithRequesters(clientHandler)
+                .WithPersistentCookies(Path.Combine(CachePath, "cookies.txt"))
+                .WithDefaultLoader();
         }
 
-        public Uri BaseUrl { get; }
-        public string Name { get; }
-
-        public string CachePath => Path.Combine(config.CachePath, $"site-{Name.ToValidPath()}");
+        public IDictionary<string, int> CategoryIds { get; }
         
-        public async Task<string> GetAsync(Uri url)
+        public override async Task<string> GetAsync(Uri url)
         {
             var response = await client.GetAsync(url);
             return await response.Content.ReadAsStringAsync();
         }
 
-        public async Task<string> PostAsync(Uri url, HttpContent data)
+        public override async Task<string> PostAsync(Uri url, HttpContent data)
         {
             var req = new HttpRequestMessage(HttpMethod.Post, url) {Content = data};
             req.Headers.Add("Accept", "application/json, text/javascript, */*; q=0.01");
@@ -43,11 +48,24 @@ namespace StoryScraper.Core
             return await response.Content.ReadAsStringAsync();
         }
 
-        public async Task<Story> GetStory(Uri url)
+        public override async Task<IStory> GetStory(Uri url)
         {
             var s = new Story(url, this, client, config);
             await s.GetCategories();
             return s;
+        }
+
+        public List<Category> GetCategoriesFor(Story story)
+        {
+            return CategoryIds
+                .Where(a => !config.ExcludedCategories.Contains(a.Key))
+                .Select(a =>
+                    new Category(
+                        $"{a.Value}",
+                        a.Key,
+                        story,
+                        config))
+                .ToList();
         }
 
         public IDictionary<string, string> GetCommonParams(string url, string csrfToken) =>

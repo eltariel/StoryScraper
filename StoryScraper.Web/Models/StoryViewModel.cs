@@ -7,9 +7,9 @@ namespace StoryScraper.Web.Models
 {
     public class StoryViewModel
     {
-        private readonly Story story;
+        private readonly IStory story;
 
-        public StoryViewModel(Uri storyUrl, Story story)
+        public StoryViewModel(Uri storyUrl, IStory story)
         {
             this.story = story;
             StoryUrl = storyUrl;
@@ -27,14 +27,14 @@ namespace StoryScraper.Web.Models
 
     public class CategoryViewModel
     {
-        private readonly Category category;
+        private readonly ICategory category;
 
-        public CategoryViewModel(Category category)
+        public CategoryViewModel(ICategory category)
         {
             this.category = category;
         }
 
-        public string Id => category.Id;
+        public string Id => category.CategoryId;
 
         public string Name => category.Name;
     }

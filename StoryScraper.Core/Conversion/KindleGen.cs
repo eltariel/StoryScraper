@@ -15,7 +15,7 @@ namespace StoryScraper.Core.Conversion
             this.config = config;
         }
 
-        public void ToMobi(Story story)
+        public void ToMobi(IStory story)
         {
             var basename = story.Title.ToValidPath();
             var args = $"\"{basename}.epub\" -o \"{basename}.mobi\"";
