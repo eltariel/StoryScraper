@@ -4,9 +4,11 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using AngleSharp;
+using AngleSharp.Common;
 using AngleSharp.Dom;
 using AngleSharp.Html.Dom;
 using Newtonsoft.Json;
@@ -59,6 +61,7 @@ namespace StoryScraper.Core.XF2Threadmarks
         public string Author { get; private set; }
         
         public Uri Image { get; private set; }
+        public string CachedImage { get; set; }
 
         [JsonIgnore]
         public List<ICategory> Categories => Xf2Categories.Cast<ICategory>().ToList();
@@ -100,6 +103,12 @@ namespace StoryScraper.Core.XF2Threadmarks
                 Title = cachedStory.Title;
                 Author = cachedStory.Author;
                 Image = cachedStory.Image;
+                CachedImage = cachedStory.CachedImage;
+                if (!File.Exists(CachedImage))
+                {
+                    await FetchCoverImage();
+                }
+                
                 Xf2Categories = cachedStory.Xf2Categories;
                 foreach (var cat in Xf2Categories)
                 {
@@ -115,6 +124,10 @@ namespace StoryScraper.Core.XF2Threadmarks
                 var rss = Xf2Categories.First().RssLink;
                 var req = new HttpRequestMessage(HttpMethod.Head, rss);
                 var head = await client.SendAsync(req, HttpCompletionOption.ResponseHeadersRead);
+                log.Trace($"Request headers:\n  {string.Join("\n  ", head.RequestMessage.Headers.Select(kv => $"{kv.Key}: {string.Join("|", kv.Value)}"))}");
+                log.Trace($"Response headers:\n  {string.Join("\n  ", head.Headers.Select(kv => $"{kv.Key}: {string.Join("|", kv.Value)}"))}");
+                log.Trace($"Response CONTENT headers:\n  {string.Join("\n  ", head.Content.Headers.Select(kv => $"{kv.Key}: {string.Join("|", kv.Value)}"))}");
+
                 log.Trace($"Getting headers for [{rss}]: response status = {head.StatusCode} ({(int)head.StatusCode})");
                 log.Trace($"Last Update for [{rss}]: {head.Content.Headers.LastModified}");
                 log.Debug($"Last cache date = {LastUpdate}, last modified date = {head.Content.Headers.LastModified}.");
@@ -160,10 +173,7 @@ namespace StoryScraper.Core.XF2Threadmarks
             if (doc.QuerySelector<IHtmlMetaElement>("[property='og:image']")?.Content is {} imgString)
             {
                 Image = new Uri(imgString);
-                CachedImage = CoverImagePath(Path.GetExtension(Image.AbsolutePath));
-                
-                var img = await client.GetByteArrayAsync(Image);
-                await File.WriteAllBytesAsync(CachedImage, img);
+                await FetchCoverImage();
             }
 
             var titleElem = doc.QuerySelector<IHtmlHeadingElement>("h1.p-title-value");
@@ -172,7 +182,12 @@ namespace StoryScraper.Core.XF2Threadmarks
             Author = (authorElem.TextContent ?? "Unknown").Trim();
         }
 
-        public string CachedImage { get; set; }
+        private async Task FetchCoverImage()
+        {
+            CachedImage = CoverImagePath(Path.GetExtension(Image.AbsolutePath));
+            var img = await client.GetByteArrayAsync(Image);
+            await File.WriteAllBytesAsync(CachedImage, img);
+        }
 
         private void CacheStoryMetadata()
         {
