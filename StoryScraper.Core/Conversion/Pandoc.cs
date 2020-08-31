@@ -43,22 +43,16 @@ namespace StoryScraper.Core.Conversion
                              + (string.IsNullOrWhiteSpace(story.CachedImage)
                                  ? ""
                                  : $" --epub-cover-image=\"{story.CachedImage}\"");
-            var pandocProcess = MakePandocProcess(pandocArgs);
-            
-            pandocProcess.OutputDataReceived += (s, e) =>
-            {
-                if (e.Data != null)
-                {
-                    log.Trace(e.Data);
-                }
-            };
+            using var pandocProcess = MakePandocProcess(pandocArgs);
             pandocProcess.BeginOutputReadLine();
 
             var meta = GetEpubMetadata(story);
             pandocProcess.StandardInput.WriteLine(meta);
             foreach (var post in (IEnumerable<IPost>) posts)
             {
-                PostToMarkdown(post, pandocProcess.StandardInput);
+                using var md = PostToMarkdown(post);
+                md.CopyTo(pandocProcess.StandardInput.BaseStream);
+                pandocProcess.StandardInput.WriteLine();
             }
 
             pandocProcess.StandardInput.Close();
@@ -66,26 +60,28 @@ namespace StoryScraper.Core.Conversion
             log.Debug($"Pandoc exit code: {pandocProcess.ExitCode}");
         }
 
-        private void PostToMarkdown(IPost post, StreamWriter parentStdin)
+        private Stream PostToMarkdown(IPost post)
         {
-            var mdPandoc = MakePandocProcess("--verbose -t markdown -f html");
-
-            mdPandoc.OutputDataReceived += (s, e) =>
+            var postCachePath = GetPostCachePath(post);
+            if (!File.Exists(postCachePath))
             {
-                if(e.Data != null && parentStdin != null)
-                {
-                    parentStdin.WriteLine(e.Data);
-                    log.Trace($"  > {e.Data}");
-                }
-            };
-            mdPandoc.BeginOutputReadLine();
+                using var mdPandoc = MakePandocProcess($"--verbose -t markdown -f html -o \"{postCachePath}\"");
 
-            var inputBuffer = Encoding.UTF8.GetBytes(post.AsHtml);
-            mdPandoc.StandardInput.BaseStream.Write(inputBuffer, 0, inputBuffer.Length);
-            mdPandoc.StandardInput.Close();
-            mdPandoc.WaitForExit();
+                var inputBuffer = Encoding.UTF8.GetBytes(post.AsHtml);
+                mdPandoc.StandardInput.BaseStream.Write(inputBuffer, 0, inputBuffer.Length);
+                mdPandoc.StandardInput.Close();
+                mdPandoc.WaitForExit();
+            }
             
-            parentStdin?.WriteLine("\n");
+            return File.OpenRead(postCachePath);
+        }
+
+        private static string GetPostCachePath(IPost post)
+        {
+            var pandocCachePath = Path.Combine(post.Site.CachePath, "pandoc");
+            Directory.CreateDirectory(pandocCachePath);
+            var postCachePath = Path.Combine(pandocCachePath, $"post-{post.PostId}.md".ToValidPath());
+            return postCachePath;
         }
 
         private static string GetEpubMetadata(IStory story) => "---\n" +

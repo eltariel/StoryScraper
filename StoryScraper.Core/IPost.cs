@@ -19,5 +19,14 @@ namespace StoryScraper.Core
 
         [JsonIgnore]
         public string AsHtml { get; }
+        
+        [JsonIgnore]
+        public ICategory Category { get; }
+        
+        [JsonIgnore]
+        public IStory Story { get; }
+        
+        [JsonIgnore]
+        public BaseSite Site { get; }
     }
 }
