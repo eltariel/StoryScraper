@@ -63,7 +63,7 @@ namespace StoryScraper.Core.Conversion
         private Stream PostToMarkdown(IPost post)
         {
             var postCachePath = GetPostCachePath(post);
-            if (!File.Exists(postCachePath))
+            if (!post.FromCache || !File.Exists(postCachePath))
             {
                 using var mdPandoc = MakePandocProcess($"--verbose -t markdown -f html -o \"{postCachePath}\"");
 

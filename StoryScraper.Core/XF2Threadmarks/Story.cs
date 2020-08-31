@@ -153,7 +153,7 @@ namespace StoryScraper.Core.XF2Threadmarks
                 log.Debug(ex, $"Exception loading story cache: {ex}");
             }
             
-            Console.WriteLine("Attempting to load from URL");
+            log.Info("Attempting to load from URL");
             return false;
         }
 

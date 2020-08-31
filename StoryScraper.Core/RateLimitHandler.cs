@@ -32,6 +32,7 @@ namespace StoryScraper.Core
                 response = await base.SendAsync(request, cancellationToken);
                 if (response.StatusCode != HttpStatusCode.TooManyRequests)
                 {
+                    log.Trace($"Not rate limited: URL {response.RequestMessage.RequestUri}");
                     return response;
                 }
 
@@ -39,6 +40,7 @@ namespace StoryScraper.Core
                 await Task.Delay(delay, cancellationToken);
             }
 
+            log.Warn($"Rate limited: URL {response?.RequestMessage.RequestUri}");
             return response;
         }
     }

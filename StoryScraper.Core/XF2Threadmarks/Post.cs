@@ -1,17 +1,25 @@
 ﻿using System;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
+using System.Text;
 using System.Threading.Tasks;
 using AngleSharp;
 using AngleSharp.Dom;
 using AngleSharp.Html.Dom;
+using AngleSharp.Io;
+using AngleSharp.Io.Network;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using NLog;
 
 namespace StoryScraper.Core.XF2Threadmarks
 {
     public class Post : IPost
     {
+
+        private static readonly Logger log = LogManager.GetCurrentClassLogger();
+        private static readonly SHA256 sha = SHA256.Create();
         private readonly Config config;
 
         public Post(string url, string name, string author, DateTime timestamp, Category category, Config config)
@@ -99,7 +107,7 @@ namespace StoryScraper.Core.XF2Threadmarks
             var doc = await Xf2Story.Context.OpenAsync(res => res.Content(html).Address(Site.BaseUrl));
 
             var bodyElement = GetProperties(doc);
-            FixImageSourceUrls(doc);
+            await FixImageSourceUrls(doc);
             ReformatQuotes(doc);
             ReformatSpoilers(doc);
             InsertPostTitle(doc);
@@ -122,14 +130,35 @@ namespace StoryScraper.Core.XF2Threadmarks
             return bodyElement;
         }
 
-        private void FixImageSourceUrls(IDocument doc)
+        private async Task FixImageSourceUrls(IDocument doc)
         {
             foreach (var img in doc.QuerySelectorAll<IHtmlImageElement>("img"))
             {
-                // set image src element to full url by reassigning it to itself
-                // relative urls will have doc.BaseUrl added, absolute urls will be left unchanged
-                img.Source = img.Source;
+                var imageCachePath = MakeImageCachePath(img.Source);
+                if (!File.Exists(imageCachePath))
+                {
+                    log.Debug($"Downloading image from {img.Source}");
+                    var download = Xf2Story.Context
+                        .GetService<IDocumentLoader>()
+                        .FetchAsync(new DocumentRequest(new Url(img.Source)));
+
+                    using var response = await download.Task;
+                    await using var target = File.OpenWrite(imageCachePath);
+                    await response.Content.CopyToAsync(target);
+                    log.Debug($"Image written to {imageCachePath}");
+                }
+
+                img.SetAttribute("src", imageCachePath);
             }
+        }
+
+        private string MakeImageCachePath(string imgSource)
+        {
+            var imgCacheDir = Path.Combine(Site.CachePath, "images");
+            Directory.CreateDirectory(imgCacheDir);
+            var hash = sha.ComputeHash(Encoding.UTF8.GetBytes(imgSource));
+            var fileName = string.Join("", hash.Select(b=> $"{b:x2}"));
+            return Path.Combine(imgCacheDir, $"{fileName}");
         }
 
         private void ReformatQuotes(IDocument doc)

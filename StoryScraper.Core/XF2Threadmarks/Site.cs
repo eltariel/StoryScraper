@@ -6,11 +6,17 @@ using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
 using AngleSharp;
+using AngleSharp.Common;
+using AngleSharp.Io;
+using NLog;
+using HttpMethod = System.Net.Http.HttpMethod;
 
 namespace StoryScraper.Core.XF2Threadmarks
 {
     public abstract class Site : BaseSite
     {
+        private static readonly Logger log = LogManager.GetCurrentClassLogger();
+        
         private static readonly CookieContainer cookieContainer = new CookieContainer();
         private static readonly HttpMessageHandler clientHandler = new RateLimitHandler(
             new HttpClientHandler { CookieContainer = cookieContainer });
@@ -21,6 +27,8 @@ namespace StoryScraper.Core.XF2Threadmarks
         protected Site(string name, Uri baseUrl, IDictionary<string, int> categoryIds, Config config) : base(name, baseUrl, config)
         {
             CategoryIds = categoryIds;
+
+            Directory.CreateDirectory(CachePath);
             
             AngleSharpConfig = Configuration.Default
                 .WithRequesters(clientHandler)
