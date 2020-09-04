@@ -15,8 +15,7 @@ namespace StoryScraper.Core
 
         public List<ICategory> Categories { get; }
         Uri Url { get; }
-        Uri Image { get; }
-        string CachedImage { get; set; }
+        string Image { get; set; }
 
         public Task GetCategories();
     }

@@ -2,12 +2,8 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
-using AngleSharp;
-using AngleSharp.Common;
-using AngleSharp.Io;
 using NLog;
 using HttpMethod = System.Net.Http.HttpMethod;
 
@@ -17,23 +13,11 @@ namespace StoryScraper.Core.XF2Threadmarks
     {
         private static readonly Logger log = LogManager.GetCurrentClassLogger();
         
-        private static readonly CookieContainer cookieContainer = new CookieContainer();
-        private static readonly HttpMessageHandler clientHandler = new RateLimitHandler(
-            new HttpClientHandler { CookieContainer = cookieContainer });
-        private static readonly HttpClient client = new HttpClient(clientHandler);
-
-        public IConfiguration AngleSharpConfig { get; }
-
         protected Site(string name, Uri baseUrl, IDictionary<string, int> categoryIds, Config config) : base(name, baseUrl, config)
         {
             CategoryIds = categoryIds;
 
             Directory.CreateDirectory(CachePath);
-            
-            AngleSharpConfig = Configuration.Default
-                .WithRequesters(clientHandler)
-                .WithPersistentCookies(Path.Combine(CachePath, "cookies.txt"))
-                .WithDefaultLoader();
         }
 
         public IDictionary<string, int> CategoryIds { get; }
@@ -55,7 +39,7 @@ namespace StoryScraper.Core.XF2Threadmarks
 
         public override async Task<IStory> GetStory(Uri url)
         {
-            var s = new Story(url, this, client, config);
+            var s = new Story(url, this, config);
             await s.GetCategories();
             return s;
         }

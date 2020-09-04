@@ -27,22 +27,21 @@ namespace StoryScraper.Core.Conversion
             var posts = story
                 .Categories
                 .SelectMany(p => p.Posts)
-                .OrderBy(p => p.Timestamp)
+                .OrderBy(p => p.PostedAt)
                 .ToList();
 
             var epubFile = Path.Combine(config.OutDir, $"{story.Title.ToValidPath()}.epub");
             if(File.Exists(epubFile) &&
-               File.GetLastWriteTime(epubFile) >= story.LastUpdate &&
-               posts.All(p => p.FromCache))
+               posts.All(p => File.Exists(GetPostCachePath(p))))
             {
-                log.Debug($"{epubFile} exists, no new posts. Skipping ebook generation.");
+                log.Info($"EPUB [{epubFile}] up to date, not rebuilding.");
                 return;
             }
 
             var pandocArgs = $"--verbose --shift-heading-level-by=-1 -o \"{epubFile}\" -f markdown"
-                             + (string.IsNullOrWhiteSpace(story.CachedImage)
+                             + (string.IsNullOrWhiteSpace(story.Image)
                                  ? ""
-                                 : $" --epub-cover-image=\"{story.CachedImage}\"");
+                                 : $" --epub-cover-image=\"{story.Image}\"");
             using var pandocProcess = MakePandocProcess(pandocArgs);
             pandocProcess.BeginOutputReadLine();
 
@@ -63,7 +62,7 @@ namespace StoryScraper.Core.Conversion
         private Stream PostToMarkdown(IPost post)
         {
             var postCachePath = GetPostCachePath(post);
-            if (!post.FromCache || !File.Exists(postCachePath))
+            if (!File.Exists(postCachePath))
             {
                 using var mdPandoc = MakePandocProcess($"--verbose -t markdown -f html -o \"{postCachePath}\"");
 
@@ -78,10 +77,16 @@ namespace StoryScraper.Core.Conversion
 
         private static string GetPostCachePath(IPost post)
         {
-            var pandocCachePath = Path.Combine(post.Site.CachePath, "pandoc");
+            var pandocCachePath = Path.Combine(
+                post.Site.CachePath,
+                "pandoc",
+                $"story-{post.Story.StoryId}".ToValidPath());
+            
             Directory.CreateDirectory(pandocCachePath);
-            var postCachePath = Path.Combine(pandocCachePath, $"post-{post.PostId}.md".ToValidPath());
-            return postCachePath;
+
+            return Path.Combine(
+                pandocCachePath,
+                $"post-{post.PostId}-{post.UpdatedAt:yyyyMMdd-HHmmss}.md".ToValidPath());
         }
 
         private static string GetEpubMetadata(IStory story) => "---\n" +

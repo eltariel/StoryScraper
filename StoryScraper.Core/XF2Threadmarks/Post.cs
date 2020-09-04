@@ -1,14 +1,10 @@
 ﻿using System;
 using System.IO;
 using System.Linq;
-using System.Security.Cryptography;
-using System.Text;
 using System.Threading.Tasks;
 using AngleSharp;
 using AngleSharp.Dom;
 using AngleSharp.Html.Dom;
-using AngleSharp.Io;
-using AngleSharp.Io.Network;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using NLog;
@@ -19,46 +15,48 @@ namespace StoryScraper.Core.XF2Threadmarks
     {
 
         private static readonly Logger log = LogManager.GetCurrentClassLogger();
-        private static readonly SHA256 sha = SHA256.Create();
         private readonly Config config;
 
-        public Post(string url, string name, string author, DateTime timestamp, Category category, Config config)
+        public Post(string url, string name, string author, DateTime postedAt, DateTime updatedAt, Category category,
+            Config config)
         {
             this.config = config;
-            Xf2Category = category;
+            Category = category;
             Url = url;
             Name = name;
             Author = author;
-            Timestamp = timestamp;
+            PostedAt = postedAt;
+            UpdatedAt = updatedAt;
             PostId = url.Substring(url.LastIndexOf("post-", StringComparison.InvariantCulture) + 5);
         }
 
         public string PostId { get; }
-        public string Name { get; set; }
-        public string Author { get; private set; }
-        public DateTime Timestamp { get; private set; }
+        public string Name { get; }
+        public string Author { get; }
+        public DateTime PostedAt { get; }
+        public DateTime UpdatedAt { get; }
         public string Url { get; }
 
         [JsonIgnore]
-        public Site Xf2Site => Xf2Story.Xf2Site;
+        public Site Site => Story.Site;
 
         [JsonIgnore]
-        public Story Xf2Story => Xf2Category.Xf2Story;
+        public Story Story => Category.Story;
         
         [JsonIgnore]
-        public Category Xf2Category { get; set; }
+        public Category Category { get; }
 
         [JsonIgnore]
-        public ICategory Category => Xf2Category;
+        ICategory IPost.Category => Category;
         
-        [JsonIgnore]
-        public IStory Story => Xf2Story;
+        [JsonIgnore] 
+        IStory IPost.Story => Story;
         
-        [JsonIgnore]
-        public BaseSite Site => Xf2Site;
+        [JsonIgnore] 
+        BaseSite IPost.Site => Site;
 
         [JsonIgnore]
-        public bool FromCache { get; private set; } = false;
+        public bool FromCache { get; } = false;
         
         [JsonIgnore]
         public string Content { get; private set; }
@@ -66,99 +64,31 @@ namespace StoryScraper.Core.XF2Threadmarks
         [JsonIgnore]
         public string AsHtml { get; private set; }
 
-        public async Task FetchContent(string csrfToken)
+        private async Task ParseContent()
         {
-            try
-            {
-                AsHtml = await File.ReadAllTextAsync(HtmlCacheFile);
-                FromCache = true;
-                return;
-            }
-            catch (Exception)
-            {
-                FromCache = false;
-            }
-
-            var directUrl = GetPostPreviewUrl(csrfToken);
-            var json = await Site.GetAsync(directUrl);
-
-            Directory.CreateDirectory(Path.GetDirectoryName(HtmlCacheFile));
-            await File.WriteAllTextAsync(JsonCacheFile, json);
-            
-            if ((string)JObject.Parse(json)["html"]?["content"] is {} html)
-            {
-                await ParseContent(html);
-                await File.WriteAllTextAsync(HtmlCacheFile, AsHtml);
-            }
-        }
-
-        private Uri GetPostPreviewUrl(string csrfToken)
-        {
-            var queryParams = Xf2Site.GetCommonParams(Story.BaseUrl, csrfToken);
-            var queryString = string.Join("&", queryParams.Select(p => $"{p.Key}={p.Value}"));
-            return new Uri(Site.BaseUrl, $"/posts/{PostId}/preview-threadmark?{queryString}");
-        }
-
-        private string JsonCacheFile => $"{Site.CachePath}/posts/json/post-{PostId}.json";
-        private string HtmlCacheFile => $"{Site.CachePath}/posts/json/post-{PostId}.html";
-
-        private async Task ParseContent(string html)
-        {
-            var doc = await Xf2Story.Context.OpenAsync(res => res.Content(html).Address(Site.BaseUrl));
-
-            var bodyElement = GetProperties(doc);
+            var doc = await Site.Context.OpenAsync(r => r.Content(Content).Address(Site.BaseUrl));
             await FixImageSourceUrls(doc);
             ReformatQuotes(doc);
             ReformatSpoilers(doc);
             InsertPostTitle(doc);
-            TrimMetadata(doc, bodyElement);
+
+            // TODO: Verify that this solves links like sv:liason-worm.3419 and doesn't break formatting elsewhere.
+            foreach (var span in doc.QuerySelectorAll<IHtmlSpanElement>("span").Where(s=> !s.ClassList.Contains("fixed-color")).ToList())
+            {
+                span.ReplaceWith(span.ChildNodes.ToArray());
+            }
 
             AsHtml = doc.Prettify();
-        }
-
-        private IHtmlDivElement GetProperties(IDocument doc)
-        {
-            var titleElement = doc.QuerySelector<IHtmlSpanElement>(".threadmarkLabel");
-            var bodyElement = doc.QuerySelector<IHtmlDivElement>(".bbWrapper");
-            var timestampElement = doc.QuerySelector<IHtmlTimeElement>(".u-dt");
-            var authorElement = doc.QuerySelector<IHtmlAnchorElement>(".username");
-
-            Name = titleElement?.TextContent;
-            Content = bodyElement?.InnerHtml;
-            Timestamp = DateTime.Parse(timestampElement?.DateTime ?? "1901-01-01");
-            Author = authorElement?.TextContent;
-            return bodyElement;
         }
 
         private async Task FixImageSourceUrls(IDocument doc)
         {
             foreach (var img in doc.QuerySelectorAll<IHtmlImageElement>("img"))
             {
-                var imageCachePath = MakeImageCachePath(img.Source);
-                if (!File.Exists(imageCachePath))
-                {
-                    log.Debug($"Downloading image from {img.Source}");
-                    var download = Xf2Story.Context
-                        .GetService<IDocumentLoader>()
-                        .FetchAsync(new DocumentRequest(new Url(img.Source)));
-
-                    using var response = await download.Task;
-                    await using var target = File.OpenWrite(imageCachePath);
-                    await response.Content.CopyToAsync(target);
-                    log.Debug($"Image written to {imageCachePath}");
-                }
+                var imageCachePath = await Site.CacheImage(img.Source);
 
                 img.SetAttribute("src", imageCachePath);
             }
-        }
-
-        private string MakeImageCachePath(string imgSource)
-        {
-            var imgCacheDir = Path.Combine(Site.CachePath, "images");
-            Directory.CreateDirectory(imgCacheDir);
-            var hash = sha.ComputeHash(Encoding.UTF8.GetBytes(imgSource));
-            var fileName = string.Join("", hash.Select(b=> $"{b:x2}"));
-            return Path.Combine(imgCacheDir, $"{fileName}");
         }
 
         private void ReformatQuotes(IDocument doc)
@@ -190,7 +120,7 @@ namespace StoryScraper.Core.XF2Threadmarks
                 var spoilerTitle = spoiler.QuerySelector<IHtmlSpanElement>("span.bbCodeSpoiler-button-title");
 
                 var spoilerHeader = doc.CreateElement("b");
-                spoilerHeader.TextContent = "Spoiler: " + spoilerTitle?.TextContent ?? "";
+                spoilerHeader.TextContent = $"Spoiler: {spoilerTitle?.TextContent ?? ""}";
                 var q = doc.CreateElement("blockquote");
                 q.Append(doc.CreateElement("hr"),
                     spoilerHeader,
@@ -212,10 +142,35 @@ namespace StoryScraper.Core.XF2Threadmarks
             doc.Body.Prepend(header);
         }
 
-        private void TrimMetadata(IDocument doc, IHtmlDivElement bodyElement)
+        public static async Task<Post> PostFromArticle(IElement article, Category category, Config config)
         {
-            var tp = doc.Body.QuerySelector<IHtmlDivElement>(".threadmarkPreview");
-            tp.ReplaceWith(bodyElement);
+            var idSpan = article.QuerySelector<IHtmlSpanElement>("span.u-anchorTarget");
+            var postId = idSpan.Id.Substring("post-".Length);
+
+            var linkElem = article.QuerySelector<IHtmlAnchorElement>("a.threadmark-control");
+            var postUrl = linkElem.Href;
+
+            var threadmarkElem = article.QuerySelector<IHtmlSpanElement>("span.threadmarkLabel");
+            var title = threadmarkElem.TextContent;
+
+            var usernameElem = article.QuerySelector<IHtmlAnchorElement>("a.username");
+            var author = usernameElem.TextContent;
+
+            var postTimeElem = article.QuerySelector<IHtmlTimeElement>("header.message-attribution time");
+            var lastEditElem = article.QuerySelector<IHtmlTimeElement>("div.message-lastEdit time");
+            var postTimeStr = lastEditElem?.DateTime ?? postTimeElem?.DateTime;
+            DateTime.TryParse(postTimeElem?.DateTime, out var timestamp);
+            DateTime.TryParse(postTimeStr, out var updated);
+            
+            var bodyElement = article.QuerySelector<IHtmlDivElement>(".bbWrapper");
+
+            log.Debug($"New post {postId}: {title} by {author} at {timestamp}, updated at {updated}");
+            
+            var p = new Post(postUrl, title, author, timestamp, updated, category, config);
+            p.Content = bodyElement?.InnerHtml;
+            await p.ParseContent();
+
+            return p;
         }
     }
 }

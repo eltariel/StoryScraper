@@ -9,7 +9,8 @@ namespace StoryScraper.Core
         public string Name { get; }
         public string Author { get; }
 
-        public DateTime Timestamp { get; }
+        public DateTime PostedAt { get; }
+        public DateTime UpdatedAt { get; }
         
         [JsonIgnore]
         public bool FromCache { get; }
