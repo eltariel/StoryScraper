@@ -35,10 +35,7 @@ namespace StoryScraper.Core
 
                 using var response = await download.Task;
 
-                meta = ImageCacheMetadata.FromResponse(response, source, this);
-                await using var target = File.OpenWrite(meta.GetImagePath());
-                await response.Content.CopyToAsync(target);
-                meta.ToCache();
+                meta = await ImageCacheMetadata.FromResponse(response, source, this);
                 log.Debug($"Image written to {meta.GetImagePath()}");
             }
 

@@ -101,8 +101,8 @@ namespace StoryScraper.Core.XF2Threadmarks
             var tlhImgElem = doc.QuerySelector<IHtmlImageElement>(".threadmarkListingHeader-icon img");
 
             var authorPage = await Site.Context.OpenAsync(authorUrl);
-            var authorFullAvatar = authorPage.QuerySelector<IHtmlMetaElement>("[property='og:image']");
-            if ((tlhImgElem?.Source ?? authorFullAvatar?.Content) is {} imgString)
+            var authorFullAvatar = authorPage.QuerySelector<IHtmlAnchorElement>("a.avatar");
+            if ((tlhImgElem?.Source ?? authorFullAvatar?.Href) is {} imgString)
             {
                 Image = await Site.Cache.CacheImage(imgString);
             }

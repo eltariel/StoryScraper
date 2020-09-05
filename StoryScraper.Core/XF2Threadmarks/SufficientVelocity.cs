@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using AngleSharp;
 
 namespace StoryScraper.Core.XF2Threadmarks
 {
@@ -19,6 +20,7 @@ namespace StoryScraper.Core.XF2Threadmarks
                 },
                 config)
         {
+            Context.SetCookie(Url.Convert(BaseUrl), "xen_user=38778%2CZd66NE1Wd8Khz2hBk_6hBZGVjVrfTYibRi7FGvdp");
         }
     }
 }

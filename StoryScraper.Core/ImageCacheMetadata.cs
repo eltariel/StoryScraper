@@ -3,9 +3,12 @@ using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
+using System.Threading.Tasks;
 using AngleSharp.Io;
 using Newtonsoft.Json;
 using NLog;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Formats;
 
 namespace StoryScraper.Core
 {
@@ -13,25 +16,27 @@ namespace StoryScraper.Core
     {
         private static readonly Logger log = LogManager.GetCurrentClassLogger();
         private static readonly SHA256 sha = SHA256.Create();
+        private static readonly ImageFormatManager imageFormatManager = Configuration.Default.ImageFormatsManager;
 
-        public ImageCacheMetadata(MimeType mimeType, string timestamp)
+        public ImageCacheMetadata(IImageFormat format, string timestamp)
         {
-            MimeType = mimeType;
+            Format = format;
             Timestamp = timestamp;
         }
             
         [JsonConstructor]
-        public ImageCacheMetadata(string contentType, string timestamp, string source)
+        public ImageCacheMetadata(string extension, string timestamp, string source)
         {
-            MimeType = new MimeType(contentType);
+            Format = imageFormatManager.FindFormatByFileExtension(extension);
             Timestamp = timestamp;
             Source = source;
         }
 
         [JsonIgnore]
-        public MimeType MimeType { get; }
-        public string ContentType => MimeType.Content;
-        
+        public IImageFormat Format { get; }
+
+        public string Extension => Format.FileExtensions.FirstOrDefault();
+
         public string Timestamp { get; }
         
         public string Source { get; private set; }
@@ -62,17 +67,30 @@ namespace StoryScraper.Core
             }
         }
 
-        public static ImageCacheMetadata FromResponse(IResponse response, string source, Cache cache)
+        public static async Task<ImageCacheMetadata> FromResponse(IResponse response, string source, Cache cache)
         {
+            var buf = new byte[response.Content.Length];
+            await using (var ms = new MemoryStream(buf))
+            {
+                await response.Content.CopyToAsync(ms);
+            }
+
+            var format = Image.DetectFormat(buf);
+            
             response.Headers.TryGetValue("Last-Modified", out var timestamp);
-            return new ImageCacheMetadata(response.GetContentType(), timestamp ?? $"{DateTime.Now}")
+            var meta = new ImageCacheMetadata(format, timestamp ?? $"{DateTime.Now}")
             {
                 Source = source,
                 Cache = cache
             };
+
+            await File.WriteAllBytesAsync(meta.GetImagePath(), buf);
+            meta.ToCache();
+            
+            return meta;
         }
         
-        public string GetImagePath() => MakeImageCachePath(Cache, Source) + GetImageExtension(MimeType);
+        public string GetImagePath() => $"{MakeImageCachePath(Cache, Source)}.{Extension}";
 
         private static string GetImageExtension(MimeType contentType) =>
             contentType.Content switch
