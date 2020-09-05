@@ -78,7 +78,7 @@ namespace StoryScraper.Core.Conversion
         private static string GetPostCachePath(IPost post)
         {
             var pandocCachePath = Path.Combine(
-                post.Site.CachePath,
+                post.Site.Cache.Root,
                 "pandoc",
                 $"story-{post.Story.StoryId}".ToValidPath());
             

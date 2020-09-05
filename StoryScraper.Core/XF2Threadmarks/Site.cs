@@ -17,7 +17,7 @@ namespace StoryScraper.Core.XF2Threadmarks
         {
             CategoryIds = categoryIds;
 
-            Directory.CreateDirectory(CachePath);
+            Directory.CreateDirectory(Cache.Root);
         }
 
         public IDictionary<string, int> CategoryIds { get; }

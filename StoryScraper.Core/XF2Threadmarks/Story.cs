@@ -104,7 +104,7 @@ namespace StoryScraper.Core.XF2Threadmarks
             var authorFullAvatar = authorPage.QuerySelector<IHtmlMetaElement>("[property='og:image']");
             if ((tlhImgElem?.Source ?? authorFullAvatar?.Content) is {} imgString)
             {
-                Image = await Site.CacheImage(imgString);
+                Image = await Site.Cache.CacheImage(imgString);
             }
         }
 
@@ -117,6 +117,6 @@ namespace StoryScraper.Core.XF2Threadmarks
         }
 
         private string MetadataCachePath =>
-            Path.Combine(Site.CachePath, $"story-{StoryId}.json".ToValidPath());
+            Path.Combine(Site.Cache.Root, $"story-{StoryId}.json".ToValidPath());
     }
 }
