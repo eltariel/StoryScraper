@@ -35,7 +35,7 @@ namespace StoryScraper.Core
         [JsonIgnore]
         public IImageFormat Format { get; }
 
-        public string Extension => Format.FileExtensions.FirstOrDefault();
+        public string Extension => Format?.FileExtensions?.FirstOrDefault();
 
         public string Timestamp { get; }
         
@@ -69,6 +69,11 @@ namespace StoryScraper.Core
 
         public static async Task<ImageCacheMetadata> FromResponse(IResponse response, string source, Cache cache)
         {
+            if (!(200 <= (int) response.StatusCode && (int) response.StatusCode < 300))
+            {
+                throw new FileNotFoundException($"HTTP Response failed: {response.StatusCode} ({(int)response.StatusCode})");
+            }
+            
             var buf = new byte[response.Content.Length];
             await using (var ms = new MemoryStream(buf))
             {
@@ -76,6 +81,10 @@ namespace StoryScraper.Core
             }
 
             var format = Image.DetectFormat(buf);
+            if (format == null)
+            {
+                throw new UnknownImageFormatException($"Unknown image format.");
+            }
             
             response.Headers.TryGetValue("Last-Modified", out var timestamp);
             var meta = new ImageCacheMetadata(format, timestamp ?? $"{DateTime.Now}")
@@ -91,15 +100,6 @@ namespace StoryScraper.Core
         }
         
         public string GetImagePath() => $"{MakeImageCachePath(Cache, Source)}.{Extension}";
-
-        private static string GetImageExtension(MimeType contentType) =>
-            contentType.Content switch
-            {
-                "image/png" => ".png",
-                "image/jpeg" => ".jpg",
-                "image/gif" => ".gif",
-                _ => ".bin"
-            };
 
         private static string MakeImageCachePath(Cache cache, string imgSource)
         {

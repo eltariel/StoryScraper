@@ -1,4 +1,5 @@
-﻿using System.IO;
+﻿using System;
+using System.IO;
 using System.Threading.Tasks;
 using AngleSharp;
 using AngleSharp.Io;
@@ -25,21 +26,29 @@ namespace StoryScraper.Core
         
         public async Task<string> CacheImage(string source)
         {
-            var meta = ImageCacheMetadata.FromCache(this, source);
-            if (meta == null)
+            try
             {
-                log.Debug($"Downloading image from {source}");
-                var download = Site.Context
-                    .GetService<IDocumentLoader>()
-                    .FetchAsync(new DocumentRequest(new Url(source)));
+                var meta = ImageCacheMetadata.FromCache(this, source);
+                if (meta == null)
+                {
+                    log.Trace($"Downloading image from {source}");
+                    var download = Site.Context
+                        .GetService<IDocumentLoader>()
+                        .FetchAsync(new DocumentRequest(new Url(source)));
 
-                using var response = await download.Task;
+                    using var response = await download.Task;
 
-                meta = await ImageCacheMetadata.FromResponse(response, source, this);
-                log.Debug($"Image written to {meta.GetImagePath()}");
+                    meta = await ImageCacheMetadata.FromResponse(response, source, this);
+                    log.Trace($"Image written to {meta?.GetImagePath()}");
+                }
+
+                return meta?.GetImagePath();
             }
-
-            return meta.GetImagePath();
+            catch (Exception ex)
+            {
+                log.Warn($"Can't cache image from {source}: {ex}");
+                return string.Empty;
+            }
         }
     }
 }

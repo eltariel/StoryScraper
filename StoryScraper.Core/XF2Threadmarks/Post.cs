@@ -86,8 +86,10 @@ namespace StoryScraper.Core.XF2Threadmarks
             foreach (var img in doc.QuerySelectorAll<IHtmlImageElement>("img"))
             {
                 var imageCachePath = await Site.Cache.CacheImage(img.Source);
-
-                img.SetAttribute("src", imageCachePath);
+                if (imageCachePath != null)
+                {
+                    img.SetAttribute("src", imageCachePath);
+                }
             }
         }
 
