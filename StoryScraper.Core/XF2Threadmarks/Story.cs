@@ -102,7 +102,12 @@ namespace StoryScraper.Core.XF2Threadmarks
 
             var authorPage = await Site.Context.OpenAsync(authorUrl);
             var authorFullAvatar = authorPage.QuerySelector<IHtmlAnchorElement>("a.avatar");
-            if ((tlhImgElem?.Source ?? authorFullAvatar?.Href) is {} imgString)
+            
+            var defaultImage = authorPage.QuerySelector<IHtmlMetaElement>("[property='og:image']");
+            
+            if ((tlhImgElem?.Source ??
+                 authorFullAvatar?.Href ??
+                 defaultImage?.Content) is {} imgString)
             {
                 Image = await Site.Cache.CacheImage(imgString);
             }
