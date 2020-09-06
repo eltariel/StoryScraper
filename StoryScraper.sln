@@ -1,6 +1,9 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
+# 
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "StoryScraper.Core", "StoryScraper.Core\StoryScraper.Core.csproj", "{2C9A1713-015B-4368-AA60-D033DB768BD1}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "StoryScraper.Web", "StoryScraper.Web\StoryScraper.Web.csproj", "{4D29A539-5262-4DF7-83B6-8A63C9D4FDCE}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -12,5 +15,9 @@ Global
 		{2C9A1713-015B-4368-AA60-D033DB768BD1}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{2C9A1713-015B-4368-AA60-D033DB768BD1}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{2C9A1713-015B-4368-AA60-D033DB768BD1}.Release|Any CPU.Build.0 = Release|Any CPU
+		{4D29A539-5262-4DF7-83B6-8A63C9D4FDCE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4D29A539-5262-4DF7-83B6-8A63C9D4FDCE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4D29A539-5262-4DF7-83B6-8A63C9D4FDCE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4D29A539-5262-4DF7-83B6-8A63C9D4FDCE}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal
