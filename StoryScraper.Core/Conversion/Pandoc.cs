@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Reflection.Metadata.Ecma335;
 using System.Text;
 using NLog;
 using StoryScraper.Core.Utils;
@@ -29,6 +30,12 @@ namespace StoryScraper.Core.Conversion
                 .SelectMany(p => p.Posts)
                 .OrderBy(p => p.PostedAt)
                 .ToList();
+
+            if (posts.Count == 0)
+            {
+                log.Warn($"Story {story.Title} has no posts, aborting! ({story.Url})");
+                return;
+            }
 
             var epubFile = Path.Combine(config.OutDir, $"{story.Title.ToValidPath()}.epub");
             if(File.Exists(epubFile) &&
