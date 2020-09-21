@@ -98,13 +98,18 @@ namespace StoryScraper.Core.XF2Threadmarks
             Title = (titleElem.TextContent ?? "Unknown").Trim();
             Author = (authorElem.TextContent ?? "Unknown").Trim();
 
+            await GetStoryImage(doc, authorUrl);
+        }
+
+        private async Task GetStoryImage(IDocument doc, string authorUrl)
+        {
             var tlhImgElem = doc.QuerySelector<IHtmlImageElement>(".threadmarkListingHeader-icon img");
 
             var authorPage = await Site.Context.OpenAsync(authorUrl);
             var authorFullAvatar = authorPage.QuerySelector<IHtmlAnchorElement>("a.avatar");
-            
+
             var defaultImage = authorPage.QuerySelector<IHtmlMetaElement>("[property='og:image']");
-            
+
             if ((tlhImgElem?.Source ??
                  authorFullAvatar?.Href ??
                  defaultImage?.Content) is {} imgString)

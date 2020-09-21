@@ -38,8 +38,8 @@ namespace StoryScraper.Core.Conversion
             }
 
             var epubFile = Path.Combine(config.OutDir, $"{story.Title.ToValidPath()}.epub");
-            if(File.Exists(epubFile) &&
-               posts.All(p => File.Exists(GetPostCachePath(p))))
+            if(File.GetLastWriteTime(epubFile) is {} epubTime &&
+               posts.All(p => epubTime >= File.GetLastWriteTime(GetPostCachePath(p))))
             {
                 log.Info($"EPUB [{epubFile}] up to date, not rebuilding.");
                 return;

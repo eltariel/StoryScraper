@@ -4,53 +4,45 @@ using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
+using AngleSharp;
 using AngleSharp.Io;
 using Newtonsoft.Json;
 using NLog;
 using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.Formats;
 
 namespace StoryScraper.Core
 {
-    public class ImageCacheMetadata
+    public class ImageCache
     {
         private static readonly Logger log = LogManager.GetCurrentClassLogger();
         private static readonly SHA256 sha = SHA256.Create();
-        private static readonly ImageFormatManager imageFormatManager = Configuration.Default.ImageFormatsManager;
+        private readonly Cache cache;
 
-        public ImageCacheMetadata(IImageFormat format, string timestamp)
+        public ImageCache(Cache cache)
         {
-            Format = format;
-            Timestamp = timestamp;
-        }
-            
-        [JsonConstructor]
-        public ImageCacheMetadata(string extension, string timestamp, string source)
-        {
-            Format = imageFormatManager.FindFormatByFileExtension(extension);
-            Timestamp = timestamp;
-            Source = source;
+            this.cache = cache;
         }
 
-        [JsonIgnore]
-        public IImageFormat Format { get; }
-
-        public string Extension => Format?.FileExtensions?.FirstOrDefault();
-
-        public string Timestamp { get; }
-        
-        public string Source { get; private set; }
-
-        [JsonIgnore]
-        public Cache Cache { get; private set; }
-
-        public void ToCache()
+        public async Task<string> CacheImage(string source)
         {
-            var metaPath = GetMetaPath(MakeImageCachePath(Cache, Source));
-            File.WriteAllText(metaPath, JsonConvert.SerializeObject(this));
+            var meta = FromCache(cache, source);
+            if (meta == null)
+            {
+                log.Trace($"Downloading image from {source}");
+                var download = cache.Site.Context
+                    .GetService<IDocumentLoader>()
+                    .FetchAsync(new DocumentRequest(new Url(source)));
+
+                using var response = await download.Task;
+
+                meta = await FromResponse(response, source);
+                log.Trace($"Image written to {GetImagePath(meta)}");
+            }
+
+            return GetImagePath(meta);
         }
 
-        public static ImageCacheMetadata FromCache(Cache cache, string source)
+        private static ImageCacheMetadata FromCache(Cache cache, string source)
         {
             try
             {
@@ -58,7 +50,6 @@ namespace StoryScraper.Core
                 var cacheMetadataPath = GetMetaPath(imageCachePath);
 
                 var meta = JsonConvert.DeserializeObject<ImageCacheMetadata>(File.ReadAllText(cacheMetadataPath));
-                meta.Cache = cache;
                 return meta;
             }
             catch (Exception)
@@ -67,7 +58,7 @@ namespace StoryScraper.Core
             }
         }
 
-        public static async Task<ImageCacheMetadata> FromResponse(IResponse response, string source, Cache cache)
+        private async Task<ImageCacheMetadata> FromResponse(IResponse response, string source)
         {
             if (!(200 <= (int) response.StatusCode && (int) response.StatusCode < 300))
             {
@@ -87,19 +78,25 @@ namespace StoryScraper.Core
             }
             
             response.Headers.TryGetValue("Last-Modified", out var timestamp);
-            var meta = new ImageCacheMetadata(format, timestamp ?? $"{DateTime.Now}")
-            {
-                Source = source,
-                Cache = cache
-            };
+            var meta = new ImageCacheMetadata(
+                format.FileExtensions.FirstOrDefault(),
+                timestamp ?? $"{DateTime.Now}",
+                source);
 
-            await File.WriteAllBytesAsync(meta.GetImagePath(), buf);
-            meta.ToCache();
+            await File.WriteAllBytesAsync(GetImagePath(meta), buf);
+            ToCache(meta);
             
             return meta;
         }
+
+        private void ToCache(ImageCacheMetadata meta)
+        {
+            var metaPath = GetMetaPath(MakeImageCachePath(cache, meta.Source));
+            File.WriteAllText(metaPath, JsonConvert.SerializeObject(meta));
+        }
         
-        public string GetImagePath() => $"{MakeImageCachePath(Cache, Source)}.{Extension}";
+        private string GetImagePath(ImageCacheMetadata meta) =>
+            $"{MakeImageCachePath(cache, meta.Source)}.{meta.Extension}";
 
         private static string MakeImageCachePath(Cache cache, string imgSource)
         {
@@ -111,5 +108,21 @@ namespace StoryScraper.Core
         }
  
         private static string GetMetaPath(string baseFilename) => $"{baseFilename}-meta.json";
+
+        private class ImageCacheMetadata
+        {
+            public ImageCacheMetadata(string extension, string timestamp, string source)
+            {
+                Extension = extension;
+                Timestamp = timestamp;
+                Source = source;
+            }
+
+            public string Extension {get; }
+
+            public string Timestamp { get; }
+        
+            public string Source { get; }
+        }
     }
 }

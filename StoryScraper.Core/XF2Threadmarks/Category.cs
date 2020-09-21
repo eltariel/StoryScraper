@@ -30,7 +30,9 @@ namespace StoryScraper.Core.XF2Threadmarks
         public string CategoryId { get; }
         public string Name { get; }
 
-        public DateTime LastUpdate => Posts.Select(p => p.UpdatedAt).OrderByDescending(p => p).FirstOrDefault();
+        public DateTime LastUpdate => Posts.Select(p => p.UpdatedAt)
+            .OrderByDescending(p => p)
+            .FirstOrDefault();
  
         [JsonIgnore]
         public Story Story { get; set; }
@@ -44,9 +46,6 @@ namespace StoryScraper.Core.XF2Threadmarks
         List<IPost> ICategory.Posts => Posts.Cast<IPost>().ToList();
         
         public List<Post> Posts { get; } = new List<Post>();
-
-        public Uri Href => new Uri($"{Story.Url}threadmarks?threadmark_category={CategoryId}");
-        public Uri RssLink => new Uri($"{Story.Url}threadmarks.rss?threadmark_category_id={CategoryId}");
 
         private Uri BaseReaderLink => new Uri($"{Story.Url}{(CategoryId == "1" ? "" : $"{CategoryId}/")}reader/");
 
@@ -71,8 +70,7 @@ namespace StoryScraper.Core.XF2Threadmarks
 
         private async Task<IEnumerable<Post>> GetReaderPage(Url readerUrl)
         {
-            var doc1 = await Site.Context.OpenAsync(Url.Convert(readerUrl));
-            var doc = doc1;
+            var doc = await Site.Context.OpenAsync(Url.Convert(readerUrl));
 
             var postArticles = doc.QuerySelectorAll("article.message.hasThreadmark");
             var posts = Enumerable.Empty<Post>();

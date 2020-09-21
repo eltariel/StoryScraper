@@ -13,11 +13,13 @@ namespace StoryScraper.Core
         private static readonly Logger log = LogManager.GetCurrentClassLogger();
 
         private readonly Config config;
+        private readonly ImageCache imageCache;
 
         public Cache(BaseSite site, Config config)
         {
             this.config = config;
             Site = site;
+            imageCache = new ImageCache(this);
         }
         
         public BaseSite Site { get; }
@@ -28,21 +30,7 @@ namespace StoryScraper.Core
         {
             try
             {
-                var meta = ImageCacheMetadata.FromCache(this, source);
-                if (meta == null)
-                {
-                    log.Trace($"Downloading image from {source}");
-                    var download = Site.Context
-                        .GetService<IDocumentLoader>()
-                        .FetchAsync(new DocumentRequest(new Url(source)));
-
-                    using var response = await download.Task;
-
-                    meta = await ImageCacheMetadata.FromResponse(response, source, this);
-                    log.Trace($"Image written to {meta?.GetImagePath()}");
-                }
-
-                return meta?.GetImagePath();
+                return await imageCache.CacheImage(source);
             }
             catch (Exception ex)
             {

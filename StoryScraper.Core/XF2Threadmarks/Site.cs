@@ -2,10 +2,8 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Net.Http;
 using System.Threading.Tasks;
 using NLog;
-using HttpMethod = System.Net.Http.HttpMethod;
 
 namespace StoryScraper.Core.XF2Threadmarks
 {
@@ -21,21 +19,6 @@ namespace StoryScraper.Core.XF2Threadmarks
         }
 
         public IDictionary<string, int> CategoryIds { get; }
-        
-        public override async Task<string> GetAsync(Uri url)
-        {
-            var response = await client.GetAsync(url);
-            return await response.Content.ReadAsStringAsync();
-        }
-
-        public override async Task<string> PostAsync(Uri url, HttpContent data)
-        {
-            var req = new HttpRequestMessage(HttpMethod.Post, url) {Content = data};
-            req.Headers.Add("Accept", "application/json, text/javascript, */*; q=0.01");
-            
-            var response = await client.SendAsync(req);
-            return await response.Content.ReadAsStringAsync();
-        }
 
         public override async Task<IStory> GetStory(Uri url)
         {
@@ -64,8 +47,5 @@ namespace StoryScraper.Core.XF2Threadmarks
                 {"_xfToken", csrfToken},
                 {"_xfResponseType", "json"},
             };
-
-        public FormUrlEncodedContent GetHtmlPostData(string url, string csrfToken) =>
-            new FormUrlEncodedContent(GetCommonParams(url, csrfToken));
     }
 }

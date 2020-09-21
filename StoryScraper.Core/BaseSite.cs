@@ -42,10 +42,6 @@ namespace StoryScraper.Core
         public Uri BaseUrl { get; }
         public string Name { get; }
 
-        public abstract Task<string> GetAsync(Uri url);
-
-        public abstract Task<string> PostAsync(Uri url, HttpContent data);
-
         public abstract Task<IStory> GetStory(Uri url);
     }
 }
