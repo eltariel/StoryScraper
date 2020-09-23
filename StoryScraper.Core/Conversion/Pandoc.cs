@@ -38,10 +38,15 @@ namespace StoryScraper.Core.Conversion
             }
 
             var epubFile = Path.Combine(config.OutDir, $"{story.Title.ToValidPath()}.epub");
-            if(File.GetLastWriteTime(epubFile) is {} epubTime &&
-               posts.All(p => epubTime >= File.GetLastWriteTime(GetPostCachePath(p))))
+            if(File.Exists(epubFile) &&
+               File.GetLastWriteTimeUtc(epubFile) is {} epubTime &&
+               posts.All(p => {
+		  var pc = GetPostCachePath(p);
+		  var ft = File.GetLastWriteTimeUtc(GetPostCachePath(p));
+                  log.Trace($"Cache: {ft.ToLocalTime():O} < {epubTime.ToLocalTime():O} = {ft < epubTime} ({pc})");
+		  return File.Exists(pc) && ft < epubTime;}))
             {
-                log.Info($"EPUB [{epubFile}] up to date, not rebuilding.");
+                log.Info($"EPUB [{epubFile}] up to date ({epubTime.ToLocalTime():O}), not rebuilding.");
                 return;
             }
 
@@ -69,6 +74,7 @@ namespace StoryScraper.Core.Conversion
         private Stream PostToMarkdown(IPost post)
         {
             var postCachePath = GetPostCachePath(post);
+	    log.Trace($"\tcache for {post.Name} @ {postCachePath}");
             if (!File.Exists(postCachePath))
             {
                 using var mdPandoc = MakePandocProcess($"--verbose -t markdown -f html -o \"{postCachePath}\"");
