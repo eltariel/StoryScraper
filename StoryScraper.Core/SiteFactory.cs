@@ -8,7 +8,7 @@ namespace StoryScraper.Core
     {
         private readonly BaseSite[] sites;
 
-        public SiteFactory(Config config)
+        public SiteFactory(IConfig config)
         {
             sites = new BaseSite[]{
                 new SufficientVelocity(config),

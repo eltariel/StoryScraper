@@ -11,41 +11,20 @@ namespace StoryScraper.Core.XF2Threadmarks
     {
         private static readonly Logger log = LogManager.GetCurrentClassLogger();
         
-        protected Site(string name, Uri baseUrl, IDictionary<string, int> categoryIds, Config config) : base(name, baseUrl, config)
+        protected Site(string name, Uri baseUrl, IDictionary<string, string> categoryIds, IConfig config) : base(name, baseUrl, config)
         {
-            CategoryIds = categoryIds;
+            CategoryIds = categoryIds
+                .Where(a => !config.ExcludedCategories.Contains(a.Key))
+                .ToDictionary(c => c.Key, c => c.Value);
 
             Directory.CreateDirectory(Cache.Root);
         }
 
-        public IDictionary<string, int> CategoryIds { get; }
+        public IDictionary<string, string> CategoryIds { get; }
 
         public override async Task<IStory> GetStory(Uri url)
         {
-            var s = new Story(url, this, config);
-            await s.GetCategories();
-            return s;
+            return await Story.FromUrl(url, this);
         }
-
-        public List<Category> GetCategoriesFor(Story story)
-        {
-            return CategoryIds
-                .Where(a => !config.ExcludedCategories.Contains(a.Key))
-                .Select(a =>
-                    new Category(
-                        $"{a.Value}",
-                        a.Key,
-                        story,
-                        config))
-                .ToList();
-        }
-
-        public IDictionary<string, string> GetCommonParams(string url, string csrfToken) =>
-            new Dictionary<string, string> {
-                {"_xfRequestUri", url},
-                {"_xfWithData", "1"},
-                {"_xfToken", csrfToken},
-                {"_xfResponseType", "json"},
-            };
     }
 }

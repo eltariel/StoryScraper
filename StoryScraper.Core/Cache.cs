@@ -12,10 +12,10 @@ namespace StoryScraper.Core
     {
         private static readonly Logger log = LogManager.GetCurrentClassLogger();
 
-        private readonly Config config;
+        private readonly IConfig config;
         private readonly ImageCache imageCache;
 
-        public Cache(BaseSite site, Config config)
+        public Cache(BaseSite site, IConfig config)
         {
             this.config = config;
             Site = site;

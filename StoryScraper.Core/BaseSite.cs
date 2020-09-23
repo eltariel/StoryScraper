@@ -11,7 +11,7 @@ namespace StoryScraper.Core
     public abstract class BaseSite
     {
         private static readonly Logger log = LogManager.GetCurrentClassLogger();
-        protected readonly Config config;
+        protected readonly IConfig config;
         
         private static readonly CookieContainer cookieContainer = new CookieContainer();
         private static readonly HttpMessageHandler clientHandler = new RateLimitHandler(
@@ -21,7 +21,7 @@ namespace StoryScraper.Core
 
         public IConfiguration AngleSharpConfig { get; }
 
-        public BaseSite(string name, Uri baseUrl, Config config)
+        public BaseSite(string name, Uri baseUrl, IConfig config)
         {
             this.config = config;
             Name = name;

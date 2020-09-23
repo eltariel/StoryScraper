@@ -5,9 +5,7 @@ using System.Threading.Tasks;
 using AngleSharp;
 using AngleSharp.Dom;
 using AngleSharp.Html.Dom;
-using AngleSharp.Io;
 using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
 using NLog;
 
 namespace StoryScraper.Core.XF2Threadmarks
@@ -15,12 +13,9 @@ namespace StoryScraper.Core.XF2Threadmarks
     public class Category : ICategory
     {
         private static readonly Logger log = LogManager.GetCurrentClassLogger();
-        
-        private readonly Config config;
 
-        public Category(string categoryId, string name, Story story, Config config, int postCount = 0)
+        public Category(string categoryId, string name, Story story, int postCount = 0)
         {
-            this.config = config;
             Story = story;
             PostCount = postCount;
             CategoryId = categoryId;
@@ -76,7 +71,7 @@ namespace StoryScraper.Core.XF2Threadmarks
             var posts = Enumerable.Empty<Post>();
             foreach (var article in postArticles)
             {
-                posts = posts.Append(await Post.PostFromArticle(article, this, config));
+                posts = posts.Append(await Post.PostFromArticle(article, this));
             }
             
             var next = doc.QuerySelector<IHtmlLinkElement>("link[rel=next]");

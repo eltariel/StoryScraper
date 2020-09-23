@@ -15,8 +15,6 @@ namespace StoryScraper.Core.XF2Threadmarks
 {
     public class Story : IStory
     {
-        private readonly Config config;
-        
         private static readonly JsonSerializer jsonSerializer = JsonSerializer.Create(new JsonSerializerSettings
         {
             ReferenceLoopHandling = ReferenceLoopHandling.Ignore,
@@ -25,12 +23,11 @@ namespace StoryScraper.Core.XF2Threadmarks
 
         private static readonly Logger log = LogManager.GetCurrentClassLogger();
 
-        public Story(Uri url, Site site, Config config)
+        public Story(Uri url, Site site)
         {
             Url = url;
             var regex = new Regex(@"(?:\.(\d*))");
             Site = site;
-            this.config = config;
             StoryId = regex.Match(url.AbsolutePath).Groups[1].Value;
         }
 
@@ -44,7 +41,21 @@ namespace StoryScraper.Core.XF2Threadmarks
             Image = image;
             Categories = categories;
         }
-        
+
+        private Story(Uri url, string storyId, string title, string author, string image, List<string> categoryIds, Site site)
+        {
+            Url = url;
+            StoryId = storyId;
+            Title = title;
+            Author = author;
+            Image = image;
+            Categories = site.CategoryIds
+                .Where(c => categoryIds.Contains(c.Value))
+                .Select(c => new Category(c.Value, c.Key, this))
+                .ToList();
+            Site = site;
+        }
+
         public string BaseUrl => Url.ToString().Replace(Site.BaseUrl.ToString(), "");
         public Uri Url { get; private set; }
 
@@ -65,57 +76,70 @@ namespace StoryScraper.Core.XF2Threadmarks
 
         public async Task GetCategories()
         {
-            await ParseStory();
-
-            var c = Site.GetCategoriesFor(this);
-            foreach (var cat in c)
+            foreach (var cat in Categories)
             {
                 await cat.GetPosts();
             }
-
-            Categories = c;
-
             CacheStoryMetadata();
         }
 
-        private async Task ParseStory()
+        internal static async Task<Story> FromUrl(Uri url, Site site)
         {
-            var doc = await Site.Context.OpenAsync(Url.ToString());
+            var doc = await site.Context.OpenAsync(url.ToString());
 
-            StoryId = doc.QuerySelector<IHtmlHtmlElement>("html")
+            var storyId = doc.QuerySelector<IHtmlHtmlElement>("html")
                 ?.Dataset["content-key"]
-                ?.Substring("thread-".Length) ?? StoryId;
+                ?.Substring("thread-".Length) ?? throw new ArgumentException("Can't parse story ID from url");
 
-            if (doc.QuerySelector<IHtmlLinkElement>("[rel='canonical']")?.Href is {} canonicalUrl)
-            {
-                Url = new Uri(canonicalUrl);
-            }
+            url = doc.QuerySelector<IHtmlLinkElement>("[rel='canonical']")?.Href is {} canonicalUrl
+                ? new Uri(canonicalUrl)
+                : url;
 
             var titleElem = doc.QuerySelector<IHtmlHeadingElement>("h1.p-title-value");
             var authorElem = doc.QuerySelector<IHtmlAnchorElement>(".username.u-concealed");
+
+            var categoryIds = doc
+                .QuerySelectorAll<IHtmlAnchorElement>(".block-tabHeader--threadmarkCategoryTabs a")
+                .Select(tab => tab.Id.Replace("threadmark-category-", ""))
+                .ToList();
+
+            var title = (titleElem.TextContent ?? "Unknown").Trim();
+            var author = (authorElem.TextContent ?? "Unknown").Trim();
             var authorUrl = authorElem.Href;
 
-            Title = (titleElem.TextContent ?? "Unknown").Trim();
-            Author = (authorElem.TextContent ?? "Unknown").Trim();
+            var img = await GetStoryImage(doc, authorUrl, site);
 
-            await GetStoryImage(doc, authorUrl);
+            return new Story(url, storyId, title, author, img, categoryIds, site);
         }
 
-        private async Task GetStoryImage(IDocument doc, string authorUrl)
+        private static async Task<string> GetStoryImage(IDocument doc, string authorUrl, Site site)
         {
             var tlhImgElem = doc.QuerySelector<IHtmlImageElement>(".threadmarkListingHeader-icon img");
+            var imgUrl = tlhImgElem?.Source;
 
-            var authorPage = await Site.Context.OpenAsync(authorUrl);
-            var authorFullAvatar = authorPage.QuerySelector<IHtmlAnchorElement>("a.avatar");
-
-            var defaultImage = authorPage.QuerySelector<IHtmlMetaElement>("[property='og:image']");
-
-            if ((tlhImgElem?.Source ??
-                 authorFullAvatar?.Href ??
-                 defaultImage?.Content) is {} imgString)
+            if (string.IsNullOrWhiteSpace(imgUrl))
             {
-                Image = await Site.Cache.CacheImage(imgString);
+                log.Debug("Story has no image, trying author avatar instead.");
+                var authorPage = await site.Context.OpenAsync(authorUrl);
+                var authorFullAvatar = authorPage.QuerySelector<IHtmlAnchorElement>("a.avatar");
+                imgUrl = authorFullAvatar?.Href;
+                
+                if (string.IsNullOrWhiteSpace(imgUrl))
+                {
+                    var defaultImage = authorPage.QuerySelector<IHtmlMetaElement>("[property='og:image']");
+                    imgUrl = defaultImage?.Content;
+                }
             }
+
+            if (string.IsNullOrWhiteSpace(imgUrl))
+            {
+                var defaultImage = doc.QuerySelector<IHtmlMetaElement>("[property='og:image']");
+                imgUrl = defaultImage?.Content;
+            }
+
+            return string.IsNullOrWhiteSpace(imgUrl)
+                ? await site.Cache.CacheImage(imgUrl)
+                : "";
         }
 
         private void CacheStoryMetadata()

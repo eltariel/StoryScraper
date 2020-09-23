@@ -15,12 +15,9 @@ namespace StoryScraper.Core.XF2Threadmarks
     {
 
         private static readonly Logger log = LogManager.GetCurrentClassLogger();
-        private readonly Config config;
 
-        public Post(string url, string name, string author, DateTime postedAt, DateTime updatedAt, Category category,
-            Config config)
+        public Post(string url, string name, string author, DateTime postedAt, DateTime updatedAt, Category category)
         {
-            this.config = config;
             Category = category;
             Url = url;
             Name = name;
@@ -144,7 +141,7 @@ namespace StoryScraper.Core.XF2Threadmarks
             doc.Body.Prepend(header);
         }
 
-        public static async Task<Post> PostFromArticle(IElement article, Category category, Config config)
+        public static async Task<Post> PostFromArticle(IElement article, Category category)
         {
             var idSpan = article.QuerySelector<IHtmlSpanElement>("span.u-anchorTarget");
             var postId = idSpan.Id.Substring("post-".Length);
@@ -168,7 +165,7 @@ namespace StoryScraper.Core.XF2Threadmarks
 
             log.Debug($"New post {postId}: {title} by {author} at {timestamp}, updated at {updated}");
             
-            var p = new Post(postUrl, title, author, timestamp, updated, category, config);
+            var p = new Post(postUrl, title, author, timestamp, updated, category);
             p.Content = bodyElement?.InnerHtml;
             await p.ParseContent();
 

@@ -5,10 +5,11 @@ using System.Linq;
 using Mono.Options;
 using NLog;
 using NLog.Targets;
+using StoryScraper.Core;
 
-namespace StoryScraper.Core
+namespace StoryScraper.Cli
 {
-    public class Config
+    public class Config : IConfig
     {
         private static readonly Logger log = LogManager.GetCurrentClassLogger();
         

@@ -6,17 +6,17 @@ namespace StoryScraper.Core.XF2Threadmarks
 {
     public class SufficientVelocity : Site
     {
-        public SufficientVelocity(Config config)
+        public SufficientVelocity(IConfig config)
             : base("Sufficient Velocity",
                 new Uri("https://forums.sufficientvelocity.com"),
-                new Dictionary<string, int>
+                new Dictionary<string, string>
                 {
-                    {"Threadmarks", 1},
-                    {"Staff Post", 2},
-                    {"Media", 3},
-                    {"Apocrypha", 4},
-                    {"Sidestory", 5},
-                    {"Informational", 6},
+                    {"Threadmarks", "1"},
+                    {"Staff Post", "2"},
+                    {"Media", "3"},
+                    {"Apocrypha", "4"},
+                    {"Sidestory", "5"},
+                    {"Informational", "6"},
                 },
                 config)
         {

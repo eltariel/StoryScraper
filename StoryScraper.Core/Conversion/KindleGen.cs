@@ -8,9 +8,9 @@ namespace StoryScraper.Core.Conversion
 {
     public class KindleGen
     {
-        private readonly Config config;
+        private readonly IConfig config;
 
-        public KindleGen(Config config)
+        public KindleGen(IConfig config)
         {
             this.config = config;
         }

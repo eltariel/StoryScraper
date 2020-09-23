@@ -14,9 +14,9 @@ namespace StoryScraper.Core.Conversion
     {
         private static readonly Logger log = LogManager.GetCurrentClassLogger();
         
-        private readonly Config config;
+        private readonly IConfig config;
 
-        public Pandoc(Config config)
+        public Pandoc(IConfig config)
         {
             this.config = config;
         }
