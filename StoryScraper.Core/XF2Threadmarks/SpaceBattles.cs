@@ -1,11 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
+using StoryScraper.Core.Conversion;
 
 namespace StoryScraper.Core.XF2Threadmarks
 {
     public class SpaceBattles : Site
     {
-        public SpaceBattles(IConfig config)
+        public SpaceBattles(IConfig config, Pandoc pandoc)
             : base("Space Battles",
                 new Uri("https://forums.spacebattles.com"),
                 new Dictionary<string, string>
@@ -17,7 +18,8 @@ namespace StoryScraper.Core.XF2Threadmarks
                     {"Sidestory", "16"},
                     {"Informational", "19"},
                 },
-                config)
+                config,
+                pandoc)
         {
         }
     }

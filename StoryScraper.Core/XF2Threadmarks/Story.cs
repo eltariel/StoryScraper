@@ -74,7 +74,7 @@ namespace StoryScraper.Core.XF2Threadmarks
 
         public DateTime LastUpdate => Categories.Aggregate(DateTime.MinValue, (d, c) => d > c.LastUpdate ? d : c.LastUpdate);
 
-        public async Task GetCategories()
+        public async Task GetPosts()
         {
             foreach (var cat in Categories)
             {

@@ -38,13 +38,13 @@ namespace StoryScraper.Core.Conversion
             }
 
             var epubFile = Path.Combine(config.OutDir, $"{story.Title.ToValidPath()}.epub");
-            if(File.Exists(epubFile) &&
-               File.GetLastWriteTimeUtc(epubFile) is {} epubTime &&
-               posts.All(p => {
-		  var pc = GetPostCachePath(p);
-		  var ft = File.GetLastWriteTimeUtc(GetPostCachePath(p));
-                  log.Trace($"Cache: {ft.ToLocalTime():O} < {epubTime.ToLocalTime():O} = {ft < epubTime} ({pc})");
-		  return File.Exists(pc) && ft < epubTime;}))
+            if (File.Exists(epubFile) &&
+                File.GetLastWriteTimeUtc(epubFile) is {} epubTime &&
+                posts.All(p =>
+                {
+                    var pc = GetPostCachePath(p);
+                    return File.Exists(pc) && File.GetLastWriteTimeUtc(GetPostCachePath(p)) < epubTime;
+                }))
             {
                 log.Info($"EPUB [{epubFile}] up to date ({epubTime.ToLocalTime():O}), not rebuilding.");
                 return;
@@ -61,7 +61,8 @@ namespace StoryScraper.Core.Conversion
             pandocProcess.StandardInput.WriteLine(meta);
             foreach (var post in (IEnumerable<IPost>) posts)
             {
-                using var md = PostToMarkdown(post);
+                PostToMarkdown(post);
+                using var md = File.OpenRead(GetPostCachePath(post));
                 md.CopyTo(pandocProcess.StandardInput.BaseStream);
                 pandocProcess.StandardInput.WriteLine();
             }
@@ -71,12 +72,12 @@ namespace StoryScraper.Core.Conversion
             log.Debug($"Pandoc exit code: {pandocProcess.ExitCode}");
         }
 
-        private Stream PostToMarkdown(IPost post)
+        public void PostToMarkdown(IPost post)
         {
             var postCachePath = GetPostCachePath(post);
-	    log.Trace($"\tcache for {post.Name} @ {postCachePath}");
             if (!File.Exists(postCachePath))
             {
+                log.Trace($"  Writing markdown for {post.Name} @ {postCachePath}");
                 using var mdPandoc = MakePandocProcess($"--verbose -t markdown -f html -o \"{postCachePath}\"");
 
                 var inputBuffer = Encoding.UTF8.GetBytes(post.AsHtml);
@@ -84,8 +85,6 @@ namespace StoryScraper.Core.Conversion
                 mdPandoc.StandardInput.Close();
                 mdPandoc.WaitForExit();
             }
-            
-            return File.OpenRead(postCachePath);
         }
 
         private static string GetPostCachePath(IPost post)

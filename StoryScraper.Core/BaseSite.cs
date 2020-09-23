@@ -5,6 +5,7 @@ using System.Net.Http;
 using System.Threading.Tasks;
 using AngleSharp;
 using NLog;
+using StoryScraper.Core.Conversion;
 
 namespace StoryScraper.Core
 {
@@ -21,12 +22,12 @@ namespace StoryScraper.Core
 
         public IConfiguration AngleSharpConfig { get; }
 
-        public BaseSite(string name, Uri baseUrl, IConfig config)
+        public BaseSite(string name, Uri baseUrl, IConfig config, Pandoc pandoc)
         {
             this.config = config;
             Name = name;
             BaseUrl = baseUrl;
-            Cache = new Cache(this, config);
+            Cache = new Cache(this, config, pandoc);
 
             AngleSharpConfig = Configuration.Default
                 .WithRequesters(clientHandler)

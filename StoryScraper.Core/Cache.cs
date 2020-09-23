@@ -4,7 +4,9 @@ using System.Threading.Tasks;
 using AngleSharp;
 using AngleSharp.Io;
 using NLog;
+using StoryScraper.Core.Conversion;
 using StoryScraper.Core.Utils;
+using StoryScraper.Core.XF2Threadmarks;
 
 namespace StoryScraper.Core
 {
@@ -13,11 +15,13 @@ namespace StoryScraper.Core
         private static readonly Logger log = LogManager.GetCurrentClassLogger();
 
         private readonly IConfig config;
+        private readonly Pandoc pandoc;
         private readonly ImageCache imageCache;
 
-        public Cache(BaseSite site, IConfig config)
+        public Cache(BaseSite site, IConfig config, Pandoc pandoc)
         {
             this.config = config;
+            this.pandoc = pandoc;
             Site = site;
             imageCache = new ImageCache(this);
         }
@@ -37,6 +41,11 @@ namespace StoryScraper.Core
                 log.Warn($"Can't cache image from {source}: {ex}");
                 return string.Empty;
             }
+        }
+
+        public void CachePost(IPost post)
+        {
+            pandoc.PostToMarkdown(post);
         }
     }
 }

@@ -4,14 +4,16 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using NLog;
+using StoryScraper.Core.Conversion;
 
 namespace StoryScraper.Core.XF2Threadmarks
 {
     public abstract class Site : BaseSite
     {
         private static readonly Logger log = LogManager.GetCurrentClassLogger();
-        
-        protected Site(string name, Uri baseUrl, IDictionary<string, string> categoryIds, IConfig config) : base(name, baseUrl, config)
+
+        protected Site(string name, Uri baseUrl, IDictionary<string, string> categoryIds, IConfig config, Pandoc pandoc)
+            : base(name, baseUrl, config, pandoc)
         {
             CategoryIds = categoryIds
                 .Where(a => !config.ExcludedCategories.Contains(a.Key))

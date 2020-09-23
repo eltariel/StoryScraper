@@ -17,6 +17,6 @@ namespace StoryScraper.Core
         Uri Url { get; }
         string Image { get; set; }
 
-        public Task GetCategories();
+        public Task GetPosts();
     }
 }

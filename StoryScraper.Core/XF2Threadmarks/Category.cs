@@ -14,10 +14,9 @@ namespace StoryScraper.Core.XF2Threadmarks
     {
         private static readonly Logger log = LogManager.GetCurrentClassLogger();
 
-        public Category(string categoryId, string name, Story story, int postCount = 0)
+        public Category(string categoryId, string name, Story story)
         {
             Story = story;
-            PostCount = postCount;
             CategoryId = categoryId;
             Name = name;
         }
@@ -30,17 +29,18 @@ namespace StoryScraper.Core.XF2Threadmarks
             .FirstOrDefault();
  
         [JsonIgnore]
-        public Story Story { get; set; }
-        
+        public Story Story { get; }
+
         [JsonIgnore]
-        public Site Site => Story.Site;
-        
-        public int PostCount { get; private set; }
+        public int PostCount => Posts.Count;
 
         [JsonIgnore]
         List<IPost> ICategory.Posts => Posts.Cast<IPost>().ToList();
         
-        public List<Post> Posts { get; } = new List<Post>();
+        public List<Post> Posts { get; private set; } = new List<Post>();
+                
+        [JsonIgnore] 
+        private Site Site => Story.Site;
 
         private Uri BaseReaderLink => new Uri($"{Story.Url}{(CategoryId == "1" ? "" : $"{CategoryId}/")}reader/");
 
@@ -53,12 +53,7 @@ namespace StoryScraper.Core.XF2Threadmarks
 
         public async Task<IEnumerable<IPost>> GetPosts()
         {
-            Posts.Clear();
-
-            var posts = await GetReaderPage(Url.Convert(BaseReaderLink));
-
-            Posts.AddRange(posts);
-            PostCount = Posts.Count;
+            Posts = (await GetReaderPage(Url.Convert(BaseReaderLink))).ToList();
 
             return Posts;
         }
@@ -73,7 +68,7 @@ namespace StoryScraper.Core.XF2Threadmarks
             {
                 posts = posts.Append(await Post.PostFromArticle(article, this));
             }
-            
+
             var next = doc.QuerySelector<IHtmlLinkElement>("link[rel=next]");
             if (next != null)
             {

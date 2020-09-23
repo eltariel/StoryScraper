@@ -76,6 +76,7 @@ namespace StoryScraper.Core.XF2Threadmarks
             }
 
             AsHtml = doc.Prettify();
+            Site.Cache.CachePost(this);
         }
 
         private async Task FixImageSourceUrls(IDocument doc)

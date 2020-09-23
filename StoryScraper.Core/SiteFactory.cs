@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using StoryScraper.Core.Conversion;
 using StoryScraper.Core.XF2Threadmarks;
 
 namespace StoryScraper.Core
@@ -8,11 +9,11 @@ namespace StoryScraper.Core
     {
         private readonly BaseSite[] sites;
 
-        public SiteFactory(IConfig config)
+        public SiteFactory(IConfig config, Pandoc pandoc)
         {
             sites = new BaseSite[]{
-                new SufficientVelocity(config),
-                new SpaceBattles(config)
+                new SufficientVelocity(config, pandoc),
+                new SpaceBattles(config, pandoc)
             };
         }
 
