@@ -1,6 +1,7 @@
 ﻿using System;
 using System.IO;
 using System.Linq;
+using System.Reflection.Metadata.Ecma335;
 using System.Threading.Tasks;
 using AngleSharp;
 using AngleSharp.Dom;
@@ -16,10 +17,12 @@ namespace StoryScraper.Core.XF2Threadmarks
 
         private static readonly Logger log = LogManager.GetCurrentClassLogger();
 
-        public Post(string url, string name, string author, DateTime postedAt, DateTime updatedAt, Category category)
+        public Post(string url, string readerUrl, string name, string author, DateTime postedAt, DateTime updatedAt,
+            Category category)
         {
             Category = category;
             Url = url;
+            ReaderUrl = readerUrl;
             Name = name;
             Author = author;
             PostedAt = postedAt;
@@ -33,6 +36,7 @@ namespace StoryScraper.Core.XF2Threadmarks
         public DateTime PostedAt { get; }
         public DateTime UpdatedAt { get; }
         public string Url { get; }
+        public string ReaderUrl { get; }
 
         [JsonIgnore]
         public Site Site => Story.Site;
@@ -41,7 +45,7 @@ namespace StoryScraper.Core.XF2Threadmarks
         public Story Story => Category.Story;
         
         [JsonIgnore]
-        public Category Category { get; }
+        public Category Category { get; set; }
 
         [JsonIgnore]
         ICategory IPost.Category => Category;
@@ -54,16 +58,12 @@ namespace StoryScraper.Core.XF2Threadmarks
 
         [JsonIgnore]
         public bool FromCache { get; } = false;
-        
-        [JsonIgnore]
-        public string Content { get; private set; }
-        
-        [JsonIgnore]
-        public string AsHtml { get; private set; }
 
-        private async Task ParseContent()
+        public bool Refetch { get; set; }
+
+        private async Task<string> ParseContent(string content)
         {
-            var doc = await Site.Context.OpenAsync(r => r.Content(Content).Address(Site.BaseUrl));
+            var doc = await Site.Context.OpenAsync(r => r.Content(content).Address(Site.BaseUrl));
             await FixImageSourceUrls(doc);
             ReformatQuotes(doc);
             ReformatSpoilers(doc);
@@ -75,8 +75,8 @@ namespace StoryScraper.Core.XF2Threadmarks
                 span.ReplaceWith(span.ChildNodes.ToArray());
             }
 
-            AsHtml = doc.Prettify();
-            Site.Cache.CachePost(this);
+            var html = doc.Prettify();;
+            return html;
         }
 
         private async Task FixImageSourceUrls(IDocument doc)
@@ -137,12 +137,13 @@ namespace StoryScraper.Core.XF2Threadmarks
             doc.Head.Append(te);
 
             var header = doc.CreateElement("h2");
-            header.TextContent = $"{Category.Name}: {Name}" +
-                                 (Story.Author == Author ? "" : $" (by {Author})");
+            header.TextContent =
+                $"{(Category.CategoryId != "1" ? $"{Category.Name}: " : "")}{Name}" +
+                $"{(Story.Author == Author ? "" : $" (by {Author})")}";
             doc.Body.Prepend(header);
         }
 
-        public static async Task<Post> PostFromArticle(IElement article, Category category)
+        public static async Task<Post> PostFromArticle(IElement article, Url readerUrl, Category category)
         {
             var idSpan = article.QuerySelector<IHtmlSpanElement>("span.u-anchorTarget");
             var postId = idSpan.Id.Substring("post-".Length);
@@ -166,9 +167,9 @@ namespace StoryScraper.Core.XF2Threadmarks
 
             log.Debug($"New post {postId}: {title} by {author} at {timestamp}, updated at {updated}");
             
-            var p = new Post(postUrl, title, author, timestamp, updated, category);
-            p.Content = bodyElement?.InnerHtml;
-            await p.ParseContent();
+            var p = new Post(postUrl, readerUrl.ToString(), title, author, timestamp, updated, category);
+            var html = await p.ParseContent(bodyElement?.InnerHtml);
+            category.Site.Cache.CachePost(p, html);
 
             return p;
         }

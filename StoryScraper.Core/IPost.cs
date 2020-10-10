@@ -16,12 +16,6 @@ namespace StoryScraper.Core
         public bool FromCache { get; }
 
         [JsonIgnore]
-        public string Content { get; }
-
-        [JsonIgnore]
-        public string AsHtml { get; }
-        
-        [JsonIgnore]
         public ICategory Category { get; }
         
         [JsonIgnore]

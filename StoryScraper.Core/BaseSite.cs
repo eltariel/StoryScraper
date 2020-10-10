@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using AngleSharp;
 using NLog;
 using StoryScraper.Core.Conversion;
+using StoryScraper.Core.Utils;
 
 namespace StoryScraper.Core
 {

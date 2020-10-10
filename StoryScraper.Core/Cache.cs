@@ -1,12 +1,9 @@
 ﻿using System;
 using System.IO;
 using System.Threading.Tasks;
-using AngleSharp;
-using AngleSharp.Io;
 using NLog;
 using StoryScraper.Core.Conversion;
 using StoryScraper.Core.Utils;
-using StoryScraper.Core.XF2Threadmarks;
 
 namespace StoryScraper.Core
 {
@@ -43,9 +40,14 @@ namespace StoryScraper.Core
             }
         }
 
-        public void CachePost(IPost post)
+        public void CachePost(IPost post, string html)
         {
-            pandoc.PostToMarkdown(post);
+            pandoc.PostToMarkdown(post, html);
+        }
+
+        public bool IsPostCached(IPost post)
+        {
+            return File.Exists(Pandoc.GetPostCachePath(post));
         }
     }
 }

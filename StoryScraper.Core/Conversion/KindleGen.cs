@@ -1,13 +1,16 @@
 ﻿using System;
 using System.Diagnostics;
 using System.IO;
+using System.Reflection.Metadata.Ecma335;
 using System.Text;
+using NLog;
 using StoryScraper.Core.Utils;
 
 namespace StoryScraper.Core.Conversion
 {
     public class KindleGen
     {
+        private static readonly Logger log = LogManager.GetCurrentClassLogger();
         private readonly IConfig config;
 
         public KindleGen(IConfig config)
@@ -17,6 +20,12 @@ namespace StoryScraper.Core.Conversion
 
         public void ToMobi(IStory story)
         {
+            if (config.SkipMobi)
+            {
+                log.Trace("Skipping mobi creation.");
+                return;
+            }
+            
             var basename = story.Title.ToValidPath();
             var args = $"\"{basename}.epub\" -o \"{basename}.mobi\"";
             var kgProcess = MakeKindleGenProcess(args);
@@ -24,7 +33,7 @@ namespace StoryScraper.Core.Conversion
             {
                 if (!string.IsNullOrEmpty(e.Data))
                 {
-                    Console.Out.WriteLine($"  [kindlegen] {e.Data}");
+                    log.Debug($"  {e.Data}");
                 }
             };
             kgProcess.BeginOutputReadLine();
@@ -52,7 +61,7 @@ namespace StoryScraper.Core.Conversion
             {
                 if (!string.IsNullOrEmpty(e.Data))
                 {
-                    Console.Out.WriteLine($"  [stderr] {e.Data}");
+                    log.Debug($"  [stderr] {e.Data}");
                 }
             };
             

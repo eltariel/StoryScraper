@@ -21,7 +21,7 @@ namespace StoryScraper.Core.Conversion
             this.config = config;
         }
         
-        public void ToEpub(IStory story)
+        public string ToEpub(IStory story)
         {
             log.Trace("Posts Markdown to EPUB");
 
@@ -34,10 +34,10 @@ namespace StoryScraper.Core.Conversion
             if (posts.Count == 0)
             {
                 log.Warn($"Story {story.Title} has no posts, aborting! ({story.Url})");
-                return;
+                return null;
             }
 
-            var epubFile = Path.Combine(config.OutDir, $"{story.Title.ToValidPath()}.epub");
+            var epubFile = GetEpubFileName(story);
             if (File.Exists(epubFile) &&
                 File.GetLastWriteTimeUtc(epubFile) is {} epubTime &&
                 posts.All(p =>
@@ -47,7 +47,7 @@ namespace StoryScraper.Core.Conversion
                 }))
             {
                 log.Info($"EPUB [{epubFile}] up to date ({epubTime.ToLocalTime():O}), not rebuilding.");
-                return;
+                return epubFile;
             }
 
             var pandocArgs = $"--verbose --shift-heading-level-by=-1 -o \"{epubFile}\" -f markdown"
@@ -61,18 +61,36 @@ namespace StoryScraper.Core.Conversion
             pandocProcess.StandardInput.WriteLine(meta);
             foreach (var post in (IEnumerable<IPost>) posts)
             {
-                PostToMarkdown(post);
-                using var md = File.OpenRead(GetPostCachePath(post));
-                md.CopyTo(pandocProcess.StandardInput.BaseStream);
-                pandocProcess.StandardInput.WriteLine();
+                try
+                {
+                    using var md = File.OpenRead(GetPostCachePath(post));
+                    md.CopyTo(pandocProcess.StandardInput.BaseStream);
+                    pandocProcess.StandardInput.WriteLine();
+                }
+                catch (Exception ex)
+                {
+                    log.Warn(ex, "Can't find cached post, aborting.");
+                    pandocProcess.Kill();
+                    pandocProcess.Close();
+                    File.Delete(epubFile);
+                    return null;
+                }
             }
 
             pandocProcess.StandardInput.Close();
             pandocProcess.WaitForExit();
-            log.Debug($"Pandoc exit code: {pandocProcess.ExitCode}");
+
+            return epubFile;
         }
 
-        public void PostToMarkdown(IPost post)
+        private string GetEpubFileName(IStory story)
+        {
+            var dir = Path.Combine(config.CachePath, "epubs");
+            Directory.CreateDirectory(dir);
+            return Path.Combine(dir, $"{story.Title.ToValidPath()}.epub");
+        }
+
+        public void PostToMarkdown(IPost post, string html)
         {
             var postCachePath = GetPostCachePath(post);
             if (!File.Exists(postCachePath))
@@ -80,18 +98,18 @@ namespace StoryScraper.Core.Conversion
                 log.Trace($"  Writing markdown for {post.Name} @ {postCachePath}");
                 using var mdPandoc = MakePandocProcess($"--verbose -t markdown -f html -o \"{postCachePath}\"");
 
-                var inputBuffer = Encoding.UTF8.GetBytes(post.AsHtml);
+                var inputBuffer = Encoding.UTF8.GetBytes(html);
                 mdPandoc.StandardInput.BaseStream.Write(inputBuffer, 0, inputBuffer.Length);
                 mdPandoc.StandardInput.Close();
                 mdPandoc.WaitForExit();
             }
         }
 
-        private static string GetPostCachePath(IPost post)
+        internal static string GetPostCachePath(IPost post)
         {
             var pandocCachePath = Path.Combine(
                 post.Site.Cache.Root,
-                "pandoc",
+                "posts",
                 $"story-{post.Story.StoryId}".ToValidPath());
             
             Directory.CreateDirectory(pandocCachePath);

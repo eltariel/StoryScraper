@@ -14,8 +14,7 @@ namespace StoryScraper.Core
 
         public int PostCount { get; }
         public List<IPost> Posts { get; }
-        
-        public Task GetDetails();
+
         public Task<IEnumerable<IPost>> GetPosts();
     }
 }

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using NLog;
 using StoryScraper.Core.Conversion;
@@ -26,7 +27,15 @@ namespace StoryScraper.Core.XF2Threadmarks
 
         public override async Task<IStory> GetStory(Uri url)
         {
-            return await Story.FromUrl(url, this);
+            var cached = Story.GetCachedStory(this, GuessStoryIdFrom(url));
+            return cached ?? await Story.FromUrl(url, this);
+        }
+
+        private static string GuessStoryIdFrom(Uri url)
+        {
+            var regex = new Regex(@"^/threads/.*\.(?<id>\d*)/?");
+            var m = regex.Match(url.AbsolutePath);
+            return m.Success ? m.Groups["id"].Value : null;
         }
     }
 }

@@ -7,7 +7,7 @@ namespace StoryScraper.Core
     public interface IConfig
     {
         List<string> ExcludedCategories { get; }
-        List<Uri> Urls { get; }
+        Dictionary<string, List<Uri>> Urls { get; }
         string CachePath { get; }
         string PandocPath { get; }
         string KindleGenPath { get; }

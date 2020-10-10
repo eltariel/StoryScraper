@@ -2,9 +2,9 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Microsoft.Extensions.Configuration;
 using Mono.Options;
 using NLog;
-using NLog.Targets;
 using StoryScraper.Core;
 
 namespace StoryScraper.Cli
@@ -13,7 +13,7 @@ namespace StoryScraper.Cli
     {
         private static readonly Logger log = LogManager.GetCurrentClassLogger();
         
-        private Config(List<Uri> urls,
+        private Config(Dictionary<string, List<Uri>> urls,
             List<string> excludedCategories,
             string cachePath,
             string outDir,
@@ -30,7 +30,7 @@ namespace StoryScraper.Cli
                 excludedCategories.AddRange(new [] {"Staff Post", "Media"});
             }
             
-            CachePath = cachePath ?? Path.Combine(Environment.CurrentDirectory, "cache");
+            CachePath = Path.GetFullPath(cachePath ?? Path.Combine(Environment.CurrentDirectory, "cache"));
             PandocPath = pandocPath ?? "pandoc";
             KindleGenPath = kindleGenPath ?? "kindlegen";
             Verbosity = verbosity;
@@ -42,20 +42,12 @@ namespace StoryScraper.Cli
             };
             UseWsl = useWsl;
             SkipMobi = skipMobi;
-            OutDir = outDir ?? Environment.CurrentDirectory;
-            
-            // On start of your program
-            UpdateNlogConfig();
-            LogManager.ConfigurationReloaded += (sender, e) =>
-            {
-                //Re apply if config reloaded
-                UpdateNlogConfig();
-            };
+            OutDir = Path.GetFullPath(outDir ?? Environment.CurrentDirectory);
 
             log.Debug("Options:");
             log.Debug($"  Excluded Categories = {string.Join(',', ExcludedCategories)}");
-            log.Debug($"  Output Path =         {Path.GetFullPath(OutDir)}");
-            log.Debug($"  Cache Path =          {Path.GetFullPath(CachePath)}");
+            log.Debug($"  Output Path =         {OutDir}");
+            log.Debug($"  Cache Path =          {CachePath}");
             log.Debug($"  Pandoc path =         {PandocPath}");
             log.Debug($"  KindleGen path =      {KindleGenPath}");
             log.Debug($"  Use WSL =             {UseWsl}");
@@ -64,7 +56,7 @@ namespace StoryScraper.Cli
         }
 
         public List<string> ExcludedCategories { get; }
-        public List<Uri> Urls { get; }
+        public Dictionary<string, List<Uri>> Urls { get; }
         public string CachePath { get; }
         public string PandocPath { get; }
         public string KindleGenPath { get; }
@@ -74,36 +66,28 @@ namespace StoryScraper.Cli
         public LogLevel LogLevel { get; }
         public string OutDir { get; }
 
-        private void UpdateNlogConfig()
+        public static Config ParseArgs(string[] args, IConfigurationRoot cfg)
         {
-            var cfg = LogManager.Configuration;
-            var consoleRules = cfg.LoggingRules
-                .Where(r => r.Targets.Any(t => t is ConsoleTarget || t is ColoredConsoleTarget));
-            foreach (var rule in consoleRules)
-            {
-                rule.SetLoggingLevels(LogLevel, LogLevel.Fatal);
-            }
-            LogManager.Configuration = cfg;
-        }
-
-        public static Config ParseArgs(string[] args)
-        {
-            List<Uri> urls;
-            string cachePath = null;
-            string urlFile = null;
-            string outDir = null;
-            var excludedCategories = new List<string>();
-            string pandocPath = null;
-            string kindlegenPath = null;
-            var useWsl = false;
-            var verbosity = 0;
-            var skipMobi = false;
+            var cachePath = cfg["paths:cache"];
+            var outDir = cfg["paths:out"];
+            var pandocPath = cfg["paths:pandoc"];
+            var kindlegenPath = cfg["paths:kindlegen"];
+            
+            var useWsl = cfg.GetValue<bool>("behaviour:use_wsl");
+            var verbosity = cfg.GetValue<int>("behaviour:verbosity");
+            var skipMobi = cfg.GetValue<bool>("behaviour:skip_mobi");
+            var excludedCategories = cfg.GetSection("behaviour:skip_categories").Get<string[]>()?.ToList() ??
+                                     new List<string>();
             var showHelp = false;
+
+            var urls = new Dictionary<string, List<Uri>>
+                {{"_", cfg.GetSection("input:urls").Get<Uri[]>()?.ToList() ?? new List<Uri>()}};
+            var urlFiles = cfg.GetSection("input:files").Get<string[]>()?.ToList() ?? new List<string>();
 
             var options = new OptionSet
             {
                 {"c|cache-path=", "Location for cache", v => cachePath = v},
-                {"u|url-file=", "File containing URLs to check, one per line. Can be combined with urls on the command line.", v => urlFile = v},
+                {"u|url-file=", "File containing URLs to check, one per line. Can be combined with urls on the command line.", v => urlFiles.Add(v)},
                 {
                     "x|exclude-category=",
                     "Category to exclude from the generated ebook. Can be specified multiple times. Defaults to 'Staff Post' and 'Media' if nothing specified.",
@@ -121,7 +105,7 @@ namespace StoryScraper.Cli
             try
             {
                 var extra = options.Parse(args);
-                urls = new List<Uri>(extra.Select(x => new Uri(x)));
+                urls["_"] = extra.Select(u => new Uri(u)).ToList();
             }
             catch (OptionException e)
             {
@@ -138,9 +122,13 @@ namespace StoryScraper.Cli
 
             try
             {
-                if(urlFile != null)
+                foreach (var file in urlFiles)
                 {
-                    urls.AddRange(File.ReadAllLines(urlFile).Select(u => new Uri(u)));
+                    var baseName = Path.GetFileNameWithoutExtension(file);
+                    urls[baseName] = File.ReadAllLines(file)
+                        .Select(u => Uri.TryCreate(u, UriKind.Absolute, out var url) ? url : null)
+                        .Where(u => u != null)
+                        .ToList();
                 }
             }
             catch (Exception ex)

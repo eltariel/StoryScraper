@@ -29,7 +29,7 @@ namespace StoryScraper.Core.XF2Threadmarks
             .FirstOrDefault();
  
         [JsonIgnore]
-        public Story Story { get; }
+        public Story Story { get; set; }
 
         [JsonIgnore]
         public int PostCount => Posts.Count;
@@ -39,22 +39,31 @@ namespace StoryScraper.Core.XF2Threadmarks
         
         public List<Post> Posts { get; private set; } = new List<Post>();
                 
-        [JsonIgnore] 
-        private Site Site => Story.Site;
+        [JsonIgnore] public Site Site => Story.Site;
 
         private Uri BaseReaderLink => new Uri($"{Story.Url}{(CategoryId == "1" ? "" : $"{CategoryId}/")}reader/");
 
-        public async Task GetDetails()
-        {
-            Uri readerUrl = BaseReaderLink;
-            var doc = await Site.Context.OpenAsync(Url.Convert(readerUrl));
-            IDocument temp = doc;
-        }
+        internal Uri LastReaderPage =>
+            Posts.Any(p => p.Refetch)
+                ? BaseReaderLink
+                : Posts
+                      .OrderByDescending(p =>
+                          p.ReaderUrl.LastIndexOf("page-", StringComparison.InvariantCulture) is {} dash && dash > 0
+                              ? int.Parse(p.ReaderUrl.Substring(dash + 5))
+                              : 1)
+                      .Select(p => new Uri(p.ReaderUrl))
+                      .FirstOrDefault()
+                  ?? BaseReaderLink;
 
         public async Task<IEnumerable<IPost>> GetPosts()
         {
-            Posts = (await GetReaderPage(Url.Convert(BaseReaderLink))).ToList();
+            var postDic = Posts.ToDictionary(p => p.PostId);
+            foreach (var post in await GetReaderPage(Url.Convert(LastReaderPage)))
+            {
+                postDic[post.PostId] = post;
+            }
 
+            Posts = postDic.Values.ToList();
             return Posts;
         }
 
@@ -66,7 +75,7 @@ namespace StoryScraper.Core.XF2Threadmarks
             var posts = Enumerable.Empty<Post>();
             foreach (var article in postArticles)
             {
-                posts = posts.Append(await Post.PostFromArticle(article, this));
+                posts = posts.Append(await Post.PostFromArticle(article, readerUrl, this));
             }
 
             var next = doc.QuerySelector<IHtmlLinkElement>("link[rel=next]");
