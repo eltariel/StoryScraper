@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using AngleSharp;
+using AngleSharp.Dom;
 using StoryScraper.Core.Conversion;
 
 namespace StoryScraper.Core.XF2Threadmarks

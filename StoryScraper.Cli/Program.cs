@@ -31,9 +31,10 @@ namespace StoryScraper.Cli
             
             var pandoc = new Pandoc(config);
             var kindlegen = new KindleGen(config);
+            var kepubify = new Kepubify(config);
             var siteFactory = new SiteFactory(config, pandoc);
 
-            var runner = new Runner(pandoc, config, kindlegen, siteFactory);
+            var runner = new Runner(pandoc, config, kindlegen, kepubify, siteFactory);
             await runner.FetchStoryDetails();
             await runner.FetchStoryContents();
             runner.ConvertStories();

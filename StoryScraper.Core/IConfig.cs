@@ -11,8 +11,10 @@ namespace StoryScraper.Core
         string CachePath { get; }
         string PandocPath { get; }
         string KindleGenPath { get; }
+        string KepubifyPath { get; }
         bool UseWsl { get; }
         bool SkipMobi { get; }
+        bool SkipKepub { get; }
         int Verbosity { get; }
         LogLevel LogLevel { get; }
         string OutDir { get; }

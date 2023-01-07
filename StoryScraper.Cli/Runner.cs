@@ -13,7 +13,7 @@ namespace StoryScraper.Cli
     {
         private static readonly Logger log = LogManager.GetCurrentClassLogger();
         
-        public Runner(Pandoc pandoc, Config config, KindleGen kindlegen, SiteFactory siteFactory)
+        public Runner(Pandoc pandoc, Config config, KindleGen kindlegen, Kepubify kepubify, SiteFactory siteFactory)
         {
             var groupedUrls  = new Dictionary<Uri, List<string>>();
             var stories = new Dictionary<Uri, IStory>();
@@ -25,6 +25,7 @@ namespace StoryScraper.Cli
             Pandoc = pandoc;
             Config = config;
             Kindlegen = kindlegen;
+            Kepubify = kepubify;
             SiteFactory = siteFactory;
         }
 
@@ -34,6 +35,7 @@ namespace StoryScraper.Cli
         public Pandoc Pandoc { get; }
         public Config Config { get; }
         public KindleGen Kindlegen { get; }
+        public Kepubify Kepubify { get; }
 
         public SiteFactory SiteFactory { get; }
 
@@ -112,6 +114,7 @@ namespace StoryScraper.Cli
                     }
 
                     Kindlegen.ToMobi(story);
+                    Kepubify.ToKepub(story, epubPath);
                 }
                 catch (Exception ex)
                 {

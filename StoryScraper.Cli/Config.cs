@@ -19,9 +19,11 @@ namespace StoryScraper.Cli
             string outDir,
             string pandocPath,
             string kindleGenPath,
+            string kepubifyPath,
             int verbosity,
             bool useWsl,
-            bool skipMobi)
+            bool skipMobi,
+            bool skipKepub)
         {
             ExcludedCategories = excludedCategories;
             Urls = urls;
@@ -33,6 +35,7 @@ namespace StoryScraper.Cli
             CachePath = Path.GetFullPath(cachePath ?? Path.Combine(Environment.CurrentDirectory, "cache"));
             PandocPath = pandocPath ?? "pandoc";
             KindleGenPath = kindleGenPath ?? "kindlegen";
+            KepubifyPath = kepubifyPath ?? "kepubify";
             Verbosity = verbosity;
             LogLevel = Verbosity switch
             {
@@ -42,17 +45,20 @@ namespace StoryScraper.Cli
             };
             UseWsl = useWsl;
             SkipMobi = skipMobi;
+            SkipKepub = skipKepub;
             OutDir = Path.GetFullPath(outDir ?? Environment.CurrentDirectory);
 
             log.Debug("Options:");
-            log.Debug($"  Excluded Categories = {string.Join(',', ExcludedCategories)}");
-            log.Debug($"  Output Path =         {OutDir}");
-            log.Debug($"  Cache Path =          {CachePath}");
-            log.Debug($"  Pandoc path =         {PandocPath}");
-            log.Debug($"  KindleGen path =      {KindleGenPath}");
-            log.Debug($"  Use WSL =             {UseWsl}");
-            log.Debug($"  Verbosity           = {LogLevel} ({Verbosity})");
-            log.Debug($"  Skip .mobi creation = {SkipMobi}");
+            log.Debug($"  Excluded Categories       = {string.Join(',', ExcludedCategories)}");
+            log.Debug($"  Output Path               = {OutDir}");
+            log.Debug($"  Cache Path                = {CachePath}");
+            log.Debug($"  Pandoc path               = {PandocPath}");
+            log.Debug($"  KindleGen path            = {KindleGenPath}");
+            log.Debug($"  Kepubify path             = {KepubifyPath}");
+            log.Debug($"  Use WSL                   = {UseWsl}");
+            log.Debug($"  Verbosity                 = {LogLevel} ({Verbosity})");
+            log.Debug($"  Skip .mobi creation       = {SkipMobi}");
+            log.Debug($"  Skip .kepub.epub creation = {SkipMobi}");
         }
 
         public List<string> ExcludedCategories { get; }
@@ -60,8 +66,10 @@ namespace StoryScraper.Cli
         public string CachePath { get; }
         public string PandocPath { get; }
         public string KindleGenPath { get; }
+        public string KepubifyPath { get; }
         public bool UseWsl { get; }
         public bool SkipMobi { get; }
+        public bool SkipKepub { get; }
         public int Verbosity { get; }
         public LogLevel LogLevel { get; }
         public string OutDir { get; }
@@ -72,10 +80,12 @@ namespace StoryScraper.Cli
             var outDir = cfg["paths:out"];
             var pandocPath = cfg["paths:pandoc"];
             var kindlegenPath = cfg["paths:kindlegen"];
+            var kepubifyPath = cfg["paths:kepubify"];
             
             var useWsl = cfg.GetValue<bool>("behaviour:use_wsl");
             var verbosity = cfg.GetValue<int>("behaviour:verbosity");
             var skipMobi = cfg.GetValue<bool>("behaviour:skip_mobi");
+            var skipKepub = cfg.GetValue<bool>("behaviour:skip_kepub");
             var excludedCategories = cfg.GetSection("behaviour:skip_categories").Get<string[]>()?.ToList() ??
                                      new List<string>();
             var showHelp = false;
@@ -95,16 +105,19 @@ namespace StoryScraper.Cli
                 },
                 {"o|out-dir=", "epub output path", v => outDir = v},
                 {"p|pandoc-path=", "Path to pandoc (html -> epub)", v => pandocPath = v},
-                {"k|kindlegen-path=", "Path to KindleGen (epub -> mobi)", v => kindlegenPath = v},
+                {"m|kindlegen-path=", "Path to KindleGen (epub -> mobi)", v => kindlegenPath = v},
+                {"k|kepubify-path=", "Path to kepubify (epub -> kepub.epub)", v => kepubifyPath = v},
                 {"w|use-wsl", "Use pandoc in WSL rather than native.", v => useWsl = v != null},
                 {"v|verbose", "Increase Verbosity.", v => { if (v != null) ++verbosity; }},
                 {"skip-mobi", "Skip creating .mobi with kindlegen", v => skipMobi = v != null},
+                {"skip-kepub", "Skip creating .kepub.epub with kepubify", v => skipKepub = v != null},
                 {"h|help", "Show help", v => showHelp = v != null}
             };
 
             try
             {
                 var extra = options.Parse(args);
+                Console.WriteLine($"Extra args being treated as urls: \n\t{string.Join("\n\t", extra)}");
                 urls["_"] = extra.Select(u => new Uri(u)).ToList();
             }
             catch (OptionException e)
@@ -144,8 +157,8 @@ namespace StoryScraper.Cli
                 return null;
             }
 
-            return new Config(urls, excludedCategories, cachePath, outDir, pandocPath, kindlegenPath, verbosity, useWsl,
-                skipMobi);
+            return new Config(urls, excludedCategories, cachePath, outDir, pandocPath, kindlegenPath, kepubifyPath, verbosity, useWsl,
+                skipMobi, skipKepub);
         }
     }
 }
